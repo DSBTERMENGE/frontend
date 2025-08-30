@@ -7,6 +7,7 @@ build/
 *.tmp
 .DS_Store
 Thumbs.db
+.svg
 
 # Ignorar arquivos de sistema
 .vscode/

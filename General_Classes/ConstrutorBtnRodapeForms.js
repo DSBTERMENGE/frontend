@@ -192,7 +192,7 @@ export class CriarBtnRodape {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn01" data-grupo="grupoBtn01">
                 <button id="btn_encerrar" class="${this.cssClasses.botao}" data-acao="encerrar">
-                    ENCERRAR
+                    <img src="/framework_dsb/frontend/Assets/icon-sair.svg" alt="Encerrar">
                 </button>
             </div>
         `;
@@ -207,16 +207,16 @@ export class CriarBtnRodape {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn02" data-grupo="grupoBtn02">
                 <button id="btn_primeiro" class="${this.cssClasses.botao}" data-acao="primeiro" title="Primeiro registro">
-                    ⏮
+                    <img src="/framework_dsb/frontend/Assets/icon-primeiro.svg" alt="Primeiro">
                 </button>
                 <button id="btn_recua" class="${this.cssClasses.botao}" data-acao="recua" title="Registro anterior">
-                    ⏪
+                    <img src="/framework_dsb/frontend/Assets/icon-anterior.svg" alt="Anterior">
                 </button>
                 <button id="btn_avanca" class="${this.cssClasses.botao}" data-acao="avanca" title="Próximo registro">
-                    ⏩
+                    <img src="/framework_dsb/frontend/Assets/icon-proximo.svg" alt="Próximo">
                 </button>
                 <button id="btn_ultimo" class="${this.cssClasses.botao}" data-acao="ultimo" title="Último registro">
-                    ⏭
+                    <img src="/framework_dsb/frontend/Assets/icon-ultimo.svg" alt="Último">
                 </button>
             </div>
         `;
@@ -231,16 +231,16 @@ export class CriarBtnRodape {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn03" data-grupo="grupoBtn03">
                 <button id="btn_editar" class="${this.cssClasses.botao}" data-acao="editar">
-                    Editar
+                    <img src="/framework_dsb/frontend/Assets/icon-editar.svg" alt="Editar">
                 </button>
                 <button id="btn_incluir" class="${this.cssClasses.botao}" data-acao="incluir">
-                    Incluir
+                    <img src="/framework_dsb/frontend/Assets/icon-incluir.svg" alt="Incluir">
                 </button>
                 <button id="btn_salvar" class="${this.cssClasses.botao}" data-acao="salvar">
-                    Salvar
+                    <img src="/framework_dsb/frontend/Assets/icon-salvar.svg" alt="Salvar">
                 </button>
                 <button id="btn_deletar" class="${this.cssClasses.botao}" data-acao="deletar">
-                    Deletar
+                    <img src="/framework_dsb/frontend/Assets/icon-deletar.svg" alt="Deletar">
                 </button>
             </div>
         `;
@@ -421,7 +421,7 @@ export class CriarBtnRodape {
             classList: event.target.classList.toString()
         });
         
-        const acao = event.target.getAttribute('data-acao');
+        const acao = event.target.closest('button').getAttribute('data-acao');
         const grupo = event.target.closest('[data-grupo]')?.getAttribute('data-grupo');
         
         console.log(`🔘 CRIARBTARODAPE: Processando clique '${acao}' (ID: ${botaoId}, Grupo: ${grupo})`);
