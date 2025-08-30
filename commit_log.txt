@@ -1,0 +1,14 @@
+Repositorio: Framework Frontend 
+Mensagem: [30/08/2025  4:54:41] Neste ponto os bot‰es de navegaá∆o funcionam. o OperacoesCRUD.js est† limpo de c¢digo antigo, e o form-grupos quase totalmente limpo 
+[developer 5a333ab] [30/08/2025  4:54:41] Neste ponto os bot√µes de navega√ß√£o funcionam. o OperacoesCRUD.js est√° limpo de c√≥digo antigo, e o form-grupos quase totalmente limpo
+ 12 files changed, 364 insertions(+), 425 deletions(-)
+ create mode 100644 Assets/icon-anterior.svg
+ create mode 100644 Assets/icon-deletar.svg
+ create mode 100644 Assets/icon-editar.svg
+ create mode 100644 Assets/icon-incluir.svg
+ create mode 100644 Assets/icon-primeiro.svg
+ create mode 100644 Assets/icon-proximo.svg
+ create mode 100644 Assets/icon-sair.svg
+ create mode 100644 Assets/icon-salvar.svg
+ create mode 100644 Assets/icon-ultimo.svg
+ 

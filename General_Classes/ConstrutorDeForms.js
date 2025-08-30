@@ -15,7 +15,14 @@
  * // NOVO PADRÃO: Configuração por propriedades + render manual
  * const form = new FormComum();
  * form.titulo = 'Cadastro de Grupos';
- * form.descricao = '1º nível de classificação';
+ * form.descricao =     render() {
+        // 🔍 VALIDAÇÃO PRÉVIA: Garante que todas as propriedades estão corretas
+        try {
+            this._validarParametros();
+        } catch (error) {
+            console.error('❌ FormComum.render(): Erro de validação -', error.message);
+            throw new Error(`Não é possível renderizar formulário: ${error.message}`);
+        }e classificação';
  * form.tipo = ['input', 'textarea'];
  * form.label = ['Grupo', 'Descrição'];
  * form.nomeCampo = ['grupo', 'descricao'];
@@ -455,90 +462,6 @@ export class FormComum extends FormularioBase {
         }, 500); // Timeout para aguardar DOM
     }
 
-    // Métodos de eventos dos botões - Disparam eventos customizados (padrão das selects)
-    _onEncerrar() {
-        console.log('🔧 DEBUG FRAMEWORK: _onEncerrar() chamado!'); // DEBUG
-        console.log('Encerrando formulário...');
-        
-        // Dispara evento customizado
-        this._dispararEventoCustomizado('encerrar', {
-            dados: this.obterDadosFormulario()
-        });
-        
-        // COMENTADO: Teste - pode estar causando reinicialização
-        // const divRodape = document.getElementById('divRodape');
-        // const divBotoes = divRodape?.querySelector('#divBotoes');
-        // if (divBotoes) {
-        //     divBotoes.innerHTML = '';
-        // }
-        
-        console.log('✅ Evento de encerramento disparado para o formulário específico');
-    }
-
-    _onPrimeiro() {
-        console.log('Primeiro registro');
-        this._dispararEventoCustomizado('primeiro', {
-            dados: this.obterDadosFormulario()
-        });
-    }
-
-    _onAnterior() {
-        console.log('Registro anterior');
-        this._dispararEventoCustomizado('anterior', {
-            dados: this.obterDadosFormulario()
-        });
-    }
-
-    _onProximo() {
-        console.log('Próximo registro');
-        this._dispararEventoCustomizado('proximo', {
-            dados: this.obterDadosFormulario()
-        });
-    }
-
-    _onUltimo() {
-        console.log('Último registro');
-        this._dispararEventoCustomizado('ultimo', {
-            dados: this.obterDadosFormulario()
-        });
-    }
-
-    _onNovo() {
-        console.log('Novo registro');
-        this._dispararEventoCustomizado('novo', {
-            dados: this.obterDadosFormulario()
-        });
-        
-        // Ação padrão: limpar campos
-        this.limparCampos();
-    }
-
-    _onEditar() {
-        console.log('Editar registro');
-        this._dispararEventoCustomizado('editar', {
-            dados: this.obterDadosFormulario()
-        });
-        
-        // Ação padrão: habilitar campos
-        this.habilitarCampos(true);
-    }
-
-    _onExcluir() {
-        console.log('Excluir registro');
-        this._dispararEventoCustomizado('excluir', {
-            dados: this.obterDadosFormulario()
-        });
-    }
-
-    _onSalvar() {
-        console.log('Salvar registro');
-        if (this.validarEDados()) {
-            this._dispararEventoCustomizado('salvar', {
-                dados: this.obterDadosFormulario()
-            });
-        }
-    }
-
     /**
      * Dispara evento customizado no rodapé global (seguindo padrão das selects)
      * @param {string} acao - Ação do botão (ex: 'salvar', 'excluir')
@@ -734,7 +657,10 @@ export class FormComum extends FormularioBase {
      * @since 2.0.0 Método otimizado com validação prévia
      */
     render() {
-        // 🔍 VALIDAÇÃO PRÉVIA: Garante que todas as propriedades estão corretas
+        // � DEBUG TEMPORÁRIO: Rastrear chamadas de render()
+        console.log('🚨 DEBUG: render() chamado!', new Error().stack);
+        
+        // �🔍 VALIDAÇÃO PRÉVIA: Garante que todas as propriedades estão corretas
         try {
             this._validarParametros();
         } catch (error) {
@@ -983,47 +909,21 @@ export class FormComum extends FormularioBase {
         return dados;
     }
 
-    /**
-     * 📝 PREENCHER DADOS: Define valores nos campos do formulário
-     * 
-     * Preenche os campos do formulário com dados de um objeto.
-     * Útil para edição de registros existentes.
-     * 
-     * @param {Object<string, string|boolean>} dados - Objeto com dados para preencher
-     * 
-     * @example
-     * formGrupos.preencherDados({
-     *   grupo: "Transporte", 
-     *   descricao: "Gastos com locomoção"
-     * });
-     * 
-     * @since 2.0.0
-     */
-    preencherDados(dados) {
-        if (!dados || typeof dados !== 'object') {
-            console.warn('❌ FormComum.preencherDados(): Dados inválidos fornecidos');
-            return;
-        }
-        
-        this.fields.forEach((field, index) => {
-            const input = field.querySelector('input, select, textarea');
-            const nomeCampo = this.nomeCampo[index];
-            
-            if (input && nomeCampo && dados.hasOwnProperty(nomeCampo)) {
-                const valor = dados[nomeCampo];
-                
-                if (input.type === 'checkbox' || input.type === 'radio') {
-                    input.checked = Boolean(valor);
-                } else {
-                    input.value = valor || '';
-                }
-            }
-        });
-    }
-
     // ============= MÉTODOS DE EVENTOS INTERNOS =============
-    
-    _onEncerrar() {
+    /**
+     * 🎯 GRUPO DE EVENTOS DE NAVEGAÇÃO
+     * 
+     * Este conjunto de métodos gerencia a navegação entre registros no formulário:
+     * • _onEncerrar() - Fecha o formulário
+     * • _onPrimeiro() - Navega para o primeiro registro
+     * • _onAnterior() - Vai para o registro anterior
+     * • _onProximo() - Avança para o próximo registro
+     * • _onUltimo() - Vai para o último registro
+     * • _dispararEvento() - Centraliza o disparo de eventos customizados
+     * 
+     * Todos os métodos seguem o padrão de disparar eventos 'formulario-acao'
+     * que são capturados pelos módulos específicos (form_grupos.js, etc.)
+     */   _onEncerrar() {
         this._dispararEvento('encerrar');
     }
     

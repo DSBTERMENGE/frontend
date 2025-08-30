@@ -310,20 +310,11 @@ export class CriarBtnRodape {
         this.botoesElementos.forEach((elemento, botaoId) => {
             if (elemento) {
                 try {
-                    console.log(`🔧 REAL: Registrando listener MANUAL para botão: ${botaoId}`);
+                    console.log(`🔧 REAL: Registrando listener para botão: ${botaoId}`);
                     
-                    // TESTE DEFINITIVO: Listener direto no onclick do elemento
-                    elemento.onclick = function(event) {
-                        console.log(`🎯🎯🎯 ONCLICK DIRETO FUNCIONOU! Botão: ${botaoId} 🎯🎯🎯`);
-                        console.log('📍 Elemento que foi clicado:', event.target);
-                        console.log('📍 ID do elemento:', event.target.id);
-                        console.log('📍 Classes:', event.target.className);
-                        this._handleBotaoClick(botaoId, event);
-                    }.bind(this);
-                    
-                    // Também mantém o addEventListener para comparar
+                    // Event listener padrão para o botão
                     elemento.addEventListener('click', (event) => {
-                        console.log(`🎯 ADDEVENTLISTENER FUNCIONOU! Botão: ${botaoId}`);
+                        console.log(`🎯 Botão clicado: ${botaoId}`);
                         this._handleBotaoClick(botaoId, event);
                     });
                     
