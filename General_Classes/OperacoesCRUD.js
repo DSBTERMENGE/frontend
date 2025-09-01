@@ -38,6 +38,7 @@ INTEGRAÇÃO:
 
 let dadosDisponiveis = [];    // Dados recebidos da API
 let reg_num = 0;             // Registro atual (BASE 0) 
+let botao_ativo = null;      // Último botão clicado
 let listenerConfigurado = false;  // Evita múltiplos listeners
 let contadorExecucoes = 0;   // Debug: contador de execuções
 
@@ -68,6 +69,42 @@ function emitirBeepLimite(limite) {
     } catch (error) {
         // Fallback: apenas log no console
         console.log('🔊 BEEP SIMULADO (áudio não disponível)');
+    }
+}
+
+/**
+ * 🔧 MODO EDITAR/NOVO: Controla estado dos campos
+ * @param {boolean} ativar - true = campos editáveis/amarelos, false = readonly/cor padrão
+ */
+function _setModoEditarNovo(ativar) {
+    // Captura TODOS os tipos de campos criados pelo framework
+    const campos = document.querySelectorAll('input, textarea, select, input[type="checkbox"], .radio-group');
+    const botaoEncerrar = document.getElementById('btn_encerrar');
+    
+    campos.forEach(campo => {
+        if (ativar) {
+            // Tornar editáveis e fundo amarelo
+            campo.removeAttribute('readonly');
+            campo.removeAttribute('disabled');
+            campo.style.backgroundColor = 'yellow';
+        } else {
+            // Tornar readonly e cor padrão
+            campo.setAttribute('readonly', true);
+            if (campo.tagName === 'SELECT' || campo.type === 'checkbox') {
+                campo.setAttribute('disabled', true);
+            }
+            campo.style.backgroundColor = '';
+        }
+    });
+    
+    if (botaoEncerrar) {
+        if (ativar) {
+            // Cor azul VS Code
+            botaoEncerrar.style.backgroundColor = '#0078d4';
+        } else {
+            // Cor original
+            botaoEncerrar.style.backgroundColor = '';
+        }
     }
 }
 
@@ -157,10 +194,14 @@ function processarAcaoGenerica(acao, instancia, dados) {
             break;
             
         case 'editar':
+            botao_ativo = 'editar';
+            _setModoEditarNovo(true);
             processarEditar(instancia, dados);
             break;
             
         case 'incluir':
+            botao_ativo = 'incluir';
+            _setModoEditarNovo(true);
             processarIncluir(instancia, dados);
             break;
             
@@ -245,27 +286,50 @@ function _Valida_Navegar(acao) {
 function processarEncerrar(instancia, dados) {
     console.log('🚪 PROCESSANDO ENCERRAR (Sair)');
     console.log('📊 Instância recebida:', instancia);
+    console.log('🎯 Estado do botão ativo:', botao_ativo);
+    
+    // COMPORTAMENTO 1: Se estiver em modo Editar ou Incluir = CANCELAR operação
+    if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
+        console.log('🔄 CANCELANDO operação de ' + botao_ativo.toUpperCase());
+        
+        // Sair do modo edição/inclusão
+        _setModoEditarNovo(false);
+        
+        // Resetar o estado do botão
+        botao_ativo = '';
+        
+        console.log('✅ Operação cancelada, voltando ao modo de visualização');
+        return; // Não fecha o formulário, apenas cancela a operação
+    }
+    
+    // COMPORTAMENTO 2: Encerramento normal do formulário
+    console.log('🚪 Encerrando formulário normalmente');
     
     try {
-        // Busca o modal do formulário
+        // 🎭 ENCERRAMENTO DE FORMULÁRIOS TIPO MODAL
+        // Formulários modais são destruídos completamente do DOM
         const modal = document.querySelector('.modal-formulario');
         
         if (modal) {
             console.log('🎯 Modal encontrado, fechando...');
             
-            // Remove o modal do DOM
+            // Remove o modal do DOM (destruição completa)
             modal.remove();
             
-            console.log('✅ Formulário encerrado com sucesso');
+            console.log('✅ Formulário modal encerrado com sucesso');
         } else {
-            console.warn('⚠️ Modal não encontrado para encerrar');
+            // 📋 ENCERRAMENTO DE FORMULÁRIOS COMUNS
+            // Estes formulários por problemas de código não são de fato encerrados, são ocultados.
+            // Posteriormente, em caso de abrir outros formulários, são substituídos.
+            console.warn('⚠️ Modal não encontrado - processando formulário comum');
             
-            // Fallback: tenta fechar pela instância se disponível
-            if (instancia && typeof instancia.fechar === 'function') {
-                console.log('🔄 Tentando fechar via instância...');
-                instancia.fechar();
+            // Fallback: usa método oficial de ocultar da instância
+            if (instancia && typeof instancia.ocultar === 'function') {
+                console.log('🔄 Ocultando formulário comum via instância...');
+                instancia.ocultar();
+                console.log('✅ Formulário comum ocultado (preservado para reutilização)');
             } else {
-                console.error('❌ Não foi possível encerrar o formulário');
+                console.error('❌ Não foi possível encerrar o formulário - instância sem método ocultar');
             }
         }
     } catch (error) {
@@ -345,6 +409,7 @@ function _popularFormularioAutomatico(dados) {
     });
     
     console.log('✅ População automática concluída');
+    _setModoEditarNovo(false); // Proteger campos contra alteração involuntária
 }
 
 // ============= POPULAÇÃO DE FORMULÁRIOS =============

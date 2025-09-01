@@ -185,7 +185,15 @@ export class FormularioBase {
     }
 
     /**
-     * Oculta o formulário
+     * 🚪 OCULTA O FORMULÁRIO (ENCERRAMENTO SEGURO)
+     * 
+     * Este método é usado para encerramento de formulários no sistema CRUD.
+     * O formulário NÃO é destruído ou removido do DOM porque todo o sistema
+     * usa a mesma infraestrutura HTML. Destruir o formulário destrói a aplicação.
+     * 
+     * ⚠️ IMPORTANTE: Não usar remove() - apenas ocultar com classe 'hidden'
+     * ✅ SEGURO: Preserva estrutura HTML para reutilização
+     * 🔄 REUTILIZAÇÃO: Permite substituição por outros formulários
      */
     ocultar() {
         if (this.container) {
