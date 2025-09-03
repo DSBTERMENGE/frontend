@@ -3,7 +3,7 @@
         OPERAÇÕES CRUD - FRAMEWORK DSB
 ************************************************************
 
-Este arquivo implementa as operações de CRUD, navegação e filtros
+Este arquivo implementa as operações de CRUD, navegação e manipulação
 para formulários após validação de dados (Framework DSB).
 
 ESPECIALIZAÇÃO: Manipulação de interface e população de formulários
@@ -170,6 +170,15 @@ function processarAcaoGenerica(acao, instancia, dados) {
     console.log('🚨🚨🚨 CHEGOU NO processarAcaoGenerica! 🚨🚨🚨');
     console.log(`🔄 Processando ação: ${acao}`);
     
+    // 🛡️ PROTEÇÃO: Verificar se está em modo edição/inclusão
+    if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
+        if (acao !== 'salvar' && acao !== 'encerrar') {
+            console.log(`⚠️ BLOQUEADO: Tentativa de ${acao} durante ${botao_ativo}`);
+            AlertaEstadoDeEdicao_Inclusao();
+            return; // Para aqui, não executa a ação
+        }
+    }
+    
     switch (acao) {
         // ======= AÇÕES DE NAVEGAÇÃO =======
         case 'primeiro':
@@ -216,6 +225,15 @@ function processarAcaoGenerica(acao, instancia, dados) {
         default:
             console.error(`❌ Ação não implementada: ${acao}`);
     }
+}
+
+/**
+ * 🚨 ALERTA DE ESTADO - Informa usuário sobre processo de edição/inclusão em andamento
+ * Emite mensagem específica baseada no valor da variável botao_ativo
+ */
+function AlertaEstadoDeEdicao_Inclusao() {
+    const operacao = botao_ativo === 'editar' ? 'edição' : 'inclusão';
+    alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
 }
 
 /**
