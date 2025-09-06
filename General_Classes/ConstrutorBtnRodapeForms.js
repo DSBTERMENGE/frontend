@@ -191,7 +191,7 @@ export class CriarBtnRodape {
     _criarGrupoBtn01() {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn01" data-grupo="grupoBtn01">
-                <button id="btn_encerrar" class="${this.cssClasses.botao}" data-acao="encerrar">
+                <button id="btn_encerrar" class="${this.cssClasses.botao}" data-acao="encerrar" title="Encerrar formulário">
                     <img src="/framework_dsb/frontend/Assets/icon-sair.svg" alt="Encerrar">
                 </button>
             </div>
@@ -230,16 +230,16 @@ export class CriarBtnRodape {
     _criarGrupoBtn03() {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn03" data-grupo="grupoBtn03">
-                <button id="btn_editar" class="${this.cssClasses.botao}" data-acao="editar">
+                <button id="btn_editar" class="${this.cssClasses.botao}" data-acao="editar" title="Editar registro atual">
                     <img src="/framework_dsb/frontend/Assets/icon-editar.svg" alt="Editar">
                 </button>
-                <button id="btn_incluir" class="${this.cssClasses.botao}" data-acao="incluir">
+                <button id="btn_incluir" class="${this.cssClasses.botao}" data-acao="incluir" title="Incluir novo registro">
                     <img src="/framework_dsb/frontend/Assets/icon-incluir.svg" alt="Incluir">
                 </button>
-                <button id="btn_salvar" class="${this.cssClasses.botao}" data-acao="salvar">
+                <button id="btn_salvar" class="${this.cssClasses.botao}" data-acao="salvar" title="Salvar alterações">
                     <img src="/framework_dsb/frontend/Assets/icon-salvar.svg" alt="Salvar">
                 </button>
-                <button id="btn_deletar" class="${this.cssClasses.botao}" data-acao="deletar">
+                <button id="btn_deletar" class="${this.cssClasses.botao}" data-acao="deletar" title="Deletar registro atual">
                     <img src="/framework_dsb/frontend/Assets/icon-deletar.svg" alt="Deletar">
                 </button>
             </div>
@@ -377,12 +377,20 @@ export class CriarBtnRodape {
                 const grupoContainer = elemento.closest('[data-grupo]');
                 const grupo = grupoContainer?.getAttribute('data-grupo');
                 
+                // ✅ PRESERVA o atributo title antes do reset (se houver reset de classes)
+                const tituloOriginal = elemento.getAttribute('title');
+                
                 // Remove estilos inline que possam estar travados
                 elemento.style.backgroundColor = '';
                 elemento.style.color = '';
                 elemento.style.borderColor = '';
                 elemento.style.transform = '';
                 elemento.style.boxShadow = '';
+                
+                // ✅ RESTAURA o atributo title se foi preservado
+                if (tituloOriginal) {
+                    elemento.setAttribute('title', tituloOriginal);
+                }
                 
                 // Log para debug
                 console.log(`🔄 Estado resetado para botão ${botaoId} do ${grupo}`);

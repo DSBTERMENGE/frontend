@@ -117,7 +117,7 @@ export class CriarBotoes {
     _criarGrupoBtn01() {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn01" data-grupo="grupoBtn01">
-                <button id="btn_encerrar" class="${this.cssClasses.botao}" data-acao="encerrar">
+                <button id="btn_encerrar" class="${this.cssClasses.botao}" data-acao="encerrar" title="Encerrar formulário">
                     ENCERRAR
                 </button>
             </div>
@@ -156,16 +156,16 @@ export class CriarBotoes {
     _criarGrupoBtn03() {
         return `
             <div class="${this.cssClasses.grupo} grupo-btn03" data-grupo="grupoBtn03">
-                <button id="btn_editar" class="${this.cssClasses.botao}" data-acao="editar">
+                <button id="btn_editar" class="${this.cssClasses.botao}" data-acao="editar" title="Editar registro atual">
                     Editar
                 </button>
-                <button id="btn_incluir" class="${this.cssClasses.botao}" data-acao="incluir">
+                <button id="btn_incluir" class="${this.cssClasses.botao}" data-acao="incluir" title="Incluir novo registro">
                     Incluir
                 </button>
-                <button id="btn_salvar" class="${this.cssClasses.botao}" data-acao="salvar">
+                <button id="btn_salvar" class="${this.cssClasses.botao}" data-acao="salvar" title="Salvar alterações">
                     Salvar
                 </button>
-                <button id="btn_deletar" class="${this.cssClasses.botao}" data-acao="deletar">
+                <button id="btn_deletar" class="${this.cssClasses.botao}" data-acao="deletar" title="Deletar registro atual">
                     Deletar
                 </button>
             </div>
@@ -278,12 +278,24 @@ export class CriarBotoes {
                 const grupoContainer = elemento.closest('[data-grupo]');
                 const grupo = grupoContainer?.getAttribute('data-grupo');
                 
+                // ✅ PRESERVA o atributo title antes do reset
+                const tituloOriginal = elemento.getAttribute('title');
+                
                 // Remove estilos inline que possam estar travados
                 elemento.style.backgroundColor = '';
                 elemento.style.color = '';
                 elemento.style.borderColor = '';
                 elemento.style.transform = '';
                 elemento.style.boxShadow = '';
+                
+                // ✅ CORREÇÃO: Força reaplicação da classe CSS base (como nos botões do cabeçalho)
+                elemento.classList.remove('btn-formulario');
+                elemento.classList.add('btn-formulario');
+                
+                // ✅ RESTAURA o atributo title após o reset
+                if (tituloOriginal) {
+                    elemento.setAttribute('title', tituloOriginal);
+                }
                 
                 // Log para debug
                 console.log(`🔄 Estado resetado para botão ${botaoId} do ${grupo}`);
