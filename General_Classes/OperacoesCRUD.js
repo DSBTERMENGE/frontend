@@ -15,6 +15,34 @@ FLUXO DE EXECUÇÃO:
 1. ValidarDadosForms.js → Validação obrigatória
 2. OperacoesCRUD.js → Execução das operações (este arquivo)
 
+************************************************************
+*/
+
+// Importando funções de debugging (primeiro para seguir critério)
+import { flow_marker, error_catcher } from './Debugger.js';
+
+/**
+ * 🚨 ALERTA DE ESTADO - Informa usuário sobre processo de edição/inclusão em andamento
+ * Emite mensagem específica baseada no valor da variável botao_ativo
+ */
+function AlertaEstadoDeEdicao_Inclusao() {
+    const operacao = botao_ativo === 'editar' ? 'edição' : 'inclusão';
+    alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
+}
+
+/**
+ * 🔍 VALIDAÇÃO ENCERRAR EDIÇÃOpulação
+para formulários após validação de dados (Framework DSB).
+
+ESPECIALIZAÇÃO: Manipulação de interface e população de formulários
+- Recebe dados da API e popula formulários
+- Executa operações de navegação e filtros
+- Gerencia interface durante operações
+
+FLUXO DE EXECUÇÃO:
+1. ValidarDadosForms.js → Validação obrigatória
+2. OperacoesCRUD.js → Execução das operações (este arquivo)
+
 RESPONSABILIDADES:
 - Popular formulários com dados recebidos da API
 - Executar operações de navegação (próximo, anterior, primeiro, último)
@@ -41,6 +69,7 @@ let reg_num = 0;             // Registro atual (BASE 0)
 let botao_ativo = null;      // Último botão clicado
 let listenerConfigurado = false;  // Evita múltiplos listeners
 let contadorExecucoes = 0;   // Debug: contador de execuções
+let dadosOriginaisRegistro = {}; // Backup dos dados originais do registro atual
 
 //************************************************************
 //                    FUNÇÕES AUXILIARES
@@ -50,7 +79,7 @@ let contadorExecucoes = 0;   // Debug: contador de execuções
  * ⚠️ BEEP: Indica que chegou ao limite de navegação
  */
 function emitirBeepLimite(limite) {
-    console.log(`🔊 BEEP! Chegou ao ${limite} registro`);
+
     
     // Tentativa de beep real (alguns navegadores suportam)
     try {
@@ -68,7 +97,7 @@ function emitirBeepLimite(limite) {
         oscillator.stop(audioContext.currentTime + 0.1); // Beep de 100ms
     } catch (error) {
         // Fallback: apenas log no console
-        console.log('🔊 BEEP SIMULADO (áudio não disponível)');
+
     }
 }
 
@@ -116,14 +145,14 @@ function _setModoEditarNovo(ativar) {
  * 🎧 Configura listeners para eventos de botões genericamente
  */
 function configurarListenersNavegacao() {
-    console.log('🔧 DEBUG OperacoesCRUD: Tentando configurar listeners...');
+
     
     // Aguarda o DOM estar pronto
     setTimeout(() => {
         const formFooter = document.querySelector('footer');
         
         if (formFooter && !listenerConfigurado) {
-            console.log('🔧 DEBUG OperacoesCRUD: Configurando listeners de navegação genéricos');
+
             
             formFooter.addEventListener('formulario-acao', function(event) {
                 // Validação defensiva: verifica se event.detail existe
@@ -134,24 +163,21 @@ function configurarListenersNavegacao() {
                 
                 const { acao, instancia, dados } = event.detail;
                 
-                console.log('🚨🚨🚨 TESTE BREAKPOINT: OperacoesCRUD RECEBEU EVENTO! 🚨🚨🚨');
-                console.log('📍 Evento capturado no OperacoesCRUD.js:', acao);
-                console.log('📊 Detalhes completos:', event.detail);
+
                 
                 // Processa TODAS as ações: navegação + CRUD
                 if (['primeiro', 'anterior', 'proximo', 'ultimo', 'encerrar', 'editar', 'incluir', 'salvar', 'deletar'].includes(acao)) {
-                    console.log(`🎯 DEBUG OperacoesCRUD: Processando ação: ${acao}`);
-                    console.log('🔄 DIRECIONANDO PARA processarAcaoGenerica...');
+
                     processarAcaoGenerica(acao, instancia, dados);
                 } else {
-                    console.log(`⚠️ AÇÃO NÃO RECONHECIDA: ${acao} (ignorando)`);
+
                 }
             });
             
             listenerConfigurado = true; // Marca como configurado
-            console.log('✅ DEBUG OperacoesCRUD: Listeners de navegação configurados');
+
         } else {
-            console.error('❌ DEBUG OperacoesCRUD: Footer não encontrado!');
+
         }
     }, 1500);
 }
@@ -167,13 +193,12 @@ function configurarListenersNavegacao() {
  * @param {Object} dados - Dados do formulário
  */
 function processarAcaoGenerica(acao, instancia, dados) {
-    console.log('🚨🚨🚨 CHEGOU NO processarAcaoGenerica! 🚨🚨🚨');
-    console.log(`🔄 Processando ação: ${acao}`);
+
     
     // 🛡️ PROTEÇÃO: Verificar se está em modo edição/inclusão
     if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
         if (acao !== 'salvar' && acao !== 'encerrar') {
-            console.log(`⚠️ BLOQUEADO: Tentativa de ${acao} durante ${botao_ativo}`);
+
             AlertaEstadoDeEdicao_Inclusao();
             return; // Para aqui, não executa a ação
         }
@@ -182,6 +207,7 @@ function processarAcaoGenerica(acao, instancia, dados) {
     switch (acao) {
         // ======= AÇÕES DE NAVEGAÇÃO =======
         case 'primeiro':
+            flow_marker('Iniciando processo de navegação para o primeiro registro');
             _Valida_Navegar('primeiro');
             break;
             
@@ -204,22 +230,25 @@ function processarAcaoGenerica(acao, instancia, dados) {
             
         case 'editar':
             botao_ativo = 'editar';
+            // Captura dados originais antes de entrar em modo edição
+            dadosOriginaisRegistro = _capturarDadosAtuaisFormulario();
             _setModoEditarNovo(true);
-            processarEditar(instancia, dados);
+            processarEditar();
             break;
             
         case 'incluir':
             botao_ativo = 'incluir';
             _setModoEditarNovo(true);
-            processarIncluir(instancia, dados);
+            processarIncluir();
             break;
             
         case 'salvar':
-            processarSalvar(instancia, dados);
+            processarSalvar();
             break;
             
         case 'deletar':
-            processarDeletar(instancia, dados);
+            flow_marker('Iniciando processo de deletar');
+            processarDeletar();
             break;
             
         default:
@@ -228,12 +257,112 @@ function processarAcaoGenerica(acao, instancia, dados) {
 }
 
 /**
- * 🚨 ALERTA DE ESTADO - Informa usuário sobre processo de edição/inclusão em andamento
- * Emite mensagem específica baseada no valor da variável botao_ativo
+ * � VALIDAÇÃO ENCERRAR EDIÇÃO
+ * Compara valores atuais dos campos com os dados originais do registro
+ * Se houver alterações, pergunta se deseja cancelar as alterações
+ * @returns {boolean} true = pode encerrar, false = abortar encerramento
  */
-function AlertaEstadoDeEdicao_Inclusao() {
-    const operacao = botao_ativo === 'editar' ? 'edição' : 'inclusão';
-    alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
+function valida_Encerrar_Edicao() {
+    const camposAlterados = [];
+    const dadosAtuais = _capturarDadosAtuaisFormulario();
+    
+    // Compara cada campo com os dados originais
+    Object.keys(dadosOriginaisRegistro).forEach(campo => {
+        const valorOriginal = dadosOriginaisRegistro[campo] || '';
+        const valorAtual = dadosAtuais[campo] || '';
+        
+        if (valorOriginal.toString() !== valorAtual.toString()) {
+            camposAlterados.push(campo);
+        }
+    });
+    
+    // Se não há alterações, libera encerramento
+    if (camposAlterados.length === 0) {
+        return true;
+    }
+    
+    // Se há alterações, pergunta ao usuário
+    const listaCampos = camposAlterados.join(', ');
+    const confirmacao = confirm(
+        `Os seguintes campos foram alterados: ${listaCampos}\n\n` +
+        `Deseja cancelar as alterações e encerrar a edição?`
+    );
+    
+    if (confirmacao) {
+        // Usuário confirmou: repopula o registro original
+        _popularFormularioAutomatico(dadosOriginaisRegistro);
+        return true;
+    } else {
+        // Usuário cancelou: aborta o encerramento
+        return false;
+    }
+}
+
+/**
+ * 🔍 VALIDAÇÃO ENCERRAR NOVO
+ * Verifica se algum campo foi preenchido durante inclusão
+ * Se houver dados, pergunta se deseja encerrar o processo de inclusão
+ * @returns {boolean} true = pode encerrar, false = abortar encerramento
+ */
+function valida_Encerrar_Novo() {
+    const dadosAtuais = _capturarDadosAtuaisFormulario();
+    const camposPreenchidos = [];
+    
+    // Verifica quais campos foram preenchidos
+    Object.keys(dadosAtuais).forEach(campo => {
+        const valor = dadosAtuais[campo];
+        if (valor && valor.toString().trim() !== '') {
+            camposPreenchidos.push(campo);
+        }
+    });
+    
+    // Se nenhum campo foi preenchido, encerra normalmente
+    if (camposPreenchidos.length === 0) {
+        // Repopula o registro atual se existir
+        if (dadosDisponiveis.length > 0 && dadosDisponiveis[reg_num]) {
+            _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
+        }
+        return true;
+    }
+    
+    // Se há campos preenchidos, pergunta ao usuário
+    const confirmacao = confirm(
+        `Foram feitas alterações nos campos durante a inclusão.\n\n` +
+        `Deseja encerrar o processo de inclusão?`
+    );
+    
+    if (confirmacao) {
+        // Usuário confirmou: repopula o registro atual se existir
+        if (dadosDisponiveis.length > 0 && dadosDisponiveis[reg_num]) {
+            _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
+        }
+        return true;
+    } else {
+        // Usuário cancelou: aborta o encerramento
+        return false;
+    }
+}
+
+/**
+ * 📥 CAPTURA DADOS ATUAIS DO FORMULÁRIO
+ * Coleta todos os valores atuais dos campos do formulário
+ * @returns {Object} Objeto com valores atuais dos campos
+ */
+function _capturarDadosAtuaisFormulario() {
+    const dados = {};
+    const campos = document.querySelectorAll('input, textarea, select');
+    
+    campos.forEach(campo => {
+        if (campo.id) {
+            if (campo.type === 'checkbox') {
+                dados[campo.id] = campo.checked;
+            } else {
+                dados[campo.id] = campo.value;
+            }
+        }
+    });
+    
+    return dados;
 }
 
 /**
@@ -284,7 +413,7 @@ function _Valida_Navegar(acao) {
             break;
             
         default:
-            console.warn(`⚠️ Ação de navegação desconhecida: ${acao}`);
+
     }
 }
 
@@ -302,26 +431,36 @@ function _Valida_Navegar(acao) {
  * @param {Object} dados - Dados do formulário
  */
 function processarEncerrar(instancia, dados) {
-    console.log('🚪 PROCESSANDO ENCERRAR (Sair)');
-    console.log('📊 Instância recebida:', instancia);
-    console.log('🎯 Estado do botão ativo:', botao_ativo);
+
     
-    // COMPORTAMENTO 1: Se estiver em modo Editar ou Incluir = CANCELAR operação
-    if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
-        console.log('🔄 CANCELANDO operação de ' + botao_ativo.toUpperCase());
+    // COMPORTAMENTO 1: Se estiver em modo Editar = Validar alterações
+    if (botao_ativo === 'editar') {
+        const podeEncerrar = valida_Encerrar_Edicao();
+        if (!podeEncerrar) {
+            return; // Usuário cancelou o encerramento
+        }
         
-        // Sair do modo edição/inclusão
+        // Sair do modo edição
         _setModoEditarNovo(false);
-        
-        // Resetar o estado do botão
         botao_ativo = '';
-        
-        console.log('✅ Operação cancelada, voltando ao modo de visualização');
-        return; // Não fecha o formulário, apenas cancela a operação
+        return; // Não fecha formulário, apenas cancela a operação
     }
     
-    // COMPORTAMENTO 2: Encerramento normal do formulário
-    console.log('🚪 Encerrando formulário normalmente');
+    // COMPORTAMENTO 2: Se estiver em modo Incluir = Validar dados inseridos
+    if (botao_ativo === 'incluir') {
+        const podeEncerrar = valida_Encerrar_Novo();
+        if (!podeEncerrar) {
+            return; // Usuário cancelou o encerramento
+        }
+        
+        // Sair do modo inclusão
+        _setModoEditarNovo(false);
+        botao_ativo = '';
+        return; // Não fecha formulário, apenas cancela a operação
+    }
+    
+    // COMPORTAMENTO 3: Encerramento normal do formulário (modo visualização)
+
     
     try {
         // 🎭 ENCERRAMENTO DE FORMULÁRIOS TIPO MODAL
@@ -329,12 +468,12 @@ function processarEncerrar(instancia, dados) {
         const modal = document.querySelector('.modal-formulario');
         
         if (modal) {
-            console.log('🎯 Modal encontrado, fechando...');
+
             
             // Remove o modal do DOM (destruição completa)
             modal.remove();
             
-            console.log('✅ Formulário modal encerrado com sucesso');
+
         } else {
             // 📋 ENCERRAMENTO DE FORMULÁRIOS COMUNS
             // Estes formulários por problemas de código não são de fato encerrados, são ocultados.
@@ -343,9 +482,9 @@ function processarEncerrar(instancia, dados) {
             
             // Fallback: usa método oficial de ocultar da instância
             if (instancia && typeof instancia.ocultar === 'function') {
-                console.log('🔄 Ocultando formulário comum via instância...');
+
                 instancia.ocultar();
-                console.log('✅ Formulário comum ocultado (preservado para reutilização)');
+
             } else {
                 console.error('❌ Não foi possível encerrar o formulário - instância sem método ocultar');
             }
@@ -357,42 +496,47 @@ function processarEncerrar(instancia, dados) {
 
 /**
  * ✏️ Handler para ação EDITAR
- * @param {Object} instancia - Instância do formulário  
- * @param {Object} dados - Dados do formulário
  */
-function processarEditar(instancia, dados) {
-    console.log('✏️ HANDLER EDITAR - SERÁ IMPLEMENTADO');
+function processarEditar() {
+
     // TODO: Implementar lógica de edição
 }
 
 /**
  * ➕ Handler para ação INCLUIR
- * @param {Object} instancia - Instância do formulário
- * @param {Object} dados - Dados do formulário
+ * Limpa todos os campos do formulário para nova inclusão
  */
-function processarIncluir(instancia, dados) {
-    console.log('➕ HANDLER INCLUIR - SERÁ IMPLEMENTADO');
-    // TODO: Implementar lógica de inclusão
+function processarIncluir() {
+    const campos = document.querySelectorAll('input, textarea, select');
+    
+    campos.forEach(campo => {
+        if (campo.type === 'checkbox') {
+            campo.checked = false;
+        } else {
+            campo.value = '';
+        }
+    });
 }
 
 /**
  * 💾 Handler para ação SALVAR
- * @param {Object} instancia - Instância do formulário
- * @param {Object} dados - Dados do formulário
  */
-function processarSalvar(instancia, dados) {
-    console.log('💾 HANDLER SALVAR - SERÁ IMPLEMENTADO');
+function processarSalvar() {
+
     // TODO: Implementar lógica de salvamento
 }
 
 /**
  * 🗑️ Handler para ação DELETAR
- * @param {Object} instancia - Instância do formulário
- * @param {Object} dados - Dados do formulário
  */
-function processarDeletar(instancia, dados) {
-    console.log('🗑️ HANDLER DELETAR - SERÁ IMPLEMENTADO');
-    // TODO: Implementar lógica de exclusão
+function processarDeletar() {
+    const confirmacao = confirm("Tem certeza que deseja deletar este registro?");
+    
+    if (!confirmacao) {
+        return; // Usuário cancelou - aborta operação
+    }
+    
+    // TODO: Implementar lógica de exclusão após confirmação
 }
 
 // ============= UTILITÁRIO ATIVO =============
@@ -401,8 +545,7 @@ function processarDeletar(instancia, dados) {
  * 🔄 Popula formulário automaticamente com dados fornecidos
  */
 function _popularFormularioAutomatico(dados) {
-    console.log('🔄 Populando formulário automaticamente...');
-    console.log('📊 Dados recebidos:', dados);
+
     
     if (!dados) {
         console.warn('⚠️ Nenhum dado fornecido para popular formulário');
@@ -420,14 +563,17 @@ function _popularFormularioAutomatico(dados) {
             } else {
                 elemento.value = dados[campo] || '';
             }
-            console.log(`📝 Campo '${campo}' populado: '${dados[campo]}'`);
+
         } else {
-            console.log(`⚠️ Campo '${campo}' não encontrado no DOM`);
+
         }
     });
     
-    console.log('✅ População automática concluída');
+
     _setModoEditarNovo(false); // Proteger campos contra alteração involuntária
+    
+    // Atualiza backup dos dados originais para navegação
+    dadosOriginaisRegistro = { ...dados };
 }
 
 // ============= POPULAÇÃO DE FORMULÁRIOS =============
@@ -438,7 +584,7 @@ function _popularFormularioAutomatico(dados) {
  */
 async function popularFormulario() {
     try {
-        console.log(`📋 Populando formulário`);
+
         
         if (!window.api_finctl) {
             throw new Error("API global não disponível (window.api_finctl)");
@@ -451,7 +597,7 @@ async function popularFormulario() {
             if (dadosRecebidos && dadosRecebidos.length > 0) {
                 dadosDisponiveis = dadosRecebidos || [];
                 reg_num = 0; 
-                console.log(`📊 Navegação inicializada: ${dadosDisponiveis.length} registros disponíveis`);
+
                 
                 _popularFormularioAutomatico(dadosRecebidos[0]);
                 
@@ -495,7 +641,6 @@ async function popularFormulario() {
 configurarListenersNavegacao();
 
 // Log de inicialização
-console.log('📋 Módulo OperacoesCRUD.js (Framework DSB) carregado - Sistema de botões ativo');
 
 //************************************************************
 //                      EXPORTS

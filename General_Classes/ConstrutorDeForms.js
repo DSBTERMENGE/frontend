@@ -434,7 +434,7 @@ export class FormComum extends FormularioBase {
                     'ultimo': 'ultimo',
                     'incluir': 'incluir',
                     'editar': 'editar',
-                    'deletar': 'excluir',
+                    'deletar': 'deletar',
                     'salvar': 'salvar'
                 };
                 

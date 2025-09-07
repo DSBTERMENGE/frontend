@@ -4,6 +4,12 @@ import {criarTitulos} from './ui_menu.js';
 import {constroiMenus} from './ui_menu.js';
 import {registrarListeners} from './ui_menu.js';
 
+// Importando funções de debugging
+import { unexpected_error_catcher } from './General_Classes/Debugger.js';
+
+// Ativando captura de erros inesperados
+unexpected_error_catcher();
+
 // Criando o box de títulos
 criarTitulos()
 
