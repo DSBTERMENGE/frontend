@@ -41,6 +41,7 @@
 import { FormularioBase } from './ConstrutorDeFormularioBase.js';
 import { CriarBtnRodape } from './ConstrutorBtnRodapeForms.js';
 import { CriarSelects } from './ConstrutorDeSelects.js';
+import { error_catcher } from './Debugger.js';
 
 /**
  * 🎯 CLASSE FormComum - Formulários dinâmicos com configuração flexível
@@ -141,12 +142,12 @@ export class FormComum extends FormularioBase {
         
         if (temParametrosCompletos) {
             // 🔄 MODO LEGADO: Constructor completo → renderização automática
-            console.log('🔄 FormComum: Modo legado - renderização automática');
+
             this._validarParametros(); // Valida antes de renderizar
             this.render();
         } else {
             // ⚡ NOVO PADRÃO: Configuração manual → aguarda render()
-            console.log('⚡ FormComum: Novo padrão - aguardando configuração manual + render()');
+
         }
     }
 
@@ -366,31 +367,25 @@ export class FormComum extends FormularioBase {
      * Cria e configura os botões no footer do formulário comum
      */
     _criarBotoesRodape() {
-        console.log('🔧 DEBUG: _criarBotoesRodape() chamado');
-        console.log('🔧 DEBUG: this.criarBotoes existe?', !!this.criarBotoes);
-        
+
         if (!this.criarBotoes) {
-            console.log('❌ criarBotoes não existe, saindo...');
+            unexpected_error_catcher('criarBotoes não existe em _criarBotoesRodape');
             return;
         }
         
-        console.log('✅ Inserindo botões no footer do formulário comum...');
-        
         // Busca o container no footer do formulário comum
         const divBotoesFormComum = document.querySelector('#divBotoesFormComum');
-        
-        console.log('🔧 DEBUG: divBotoesFormComum encontrado?', !!divBotoesFormComum);
         
         if (divBotoesFormComum) {
             try {
                 // Insere os botões no container do formulário
                 this.criarBotoes.inserirEm(divBotoesFormComum);
-                console.log('✅ Botões inseridos no divBotoesFormComum via inserirEm()');
+
             } catch (error) {
-                console.error('❌ Erro ao inserir botões:', error);
+                error_catcher(error);
             }
         } else {
-            console.log('❌ divBotoesFormComum não encontrado no formulário');
+
         }
     }
 
@@ -410,18 +405,18 @@ export class FormComum extends FormularioBase {
      * @private
      */
     _configurarEscutaEventosRodape() {
-        console.log('🔧 DEBUG FRAMEWORK: Configurando escuta de eventos do CriarBtnRodape');
+
         
         // Aguarda um pouco para garantir que o DOM está pronto
         setTimeout(() => {
             // Busca o container dos botões (onde CriarBtnRodape dispara 'botao-clicado')
             const containerBotoes = document.querySelector('.botoes-container');
-            console.log('🔧 DEBUG FRAMEWORK: Container de botões encontrado:', containerBotoes);
+
             
             if (containerBotoes) {
-                console.log('🔧 DEBUG ConstrutorDeForms: Adicionando listener para botao-clicado');
+
                 containerBotoes.addEventListener('botao-clicado', (event) => {
-                    console.log('🎯 DEBUG ConstrutorDeForms: *** EVENTO BOTAO-CLICADO RECEBIDO! ***', event.detail);
+
                 
                 const { acao, botaoId } = event.detail;
                 
@@ -440,24 +435,24 @@ export class FormComum extends FormularioBase {
                 
                 const acaoFormulario = mapeamentoAcoes[acao];
                 
-                console.log('🔄 DEBUG ConstrutorDeForms: Mapeando ação:', acao, '→', acaoFormulario);
+
                 
                 if (acaoFormulario) {
-                    console.log(`🎯 DEBUG ConstrutorDeForms: *** CONVERTENDO '${acao}' → '${acaoFormulario}' ***`);
+
                     
                     // Dispara o evento que os formulários específicos estão esperando
                     this._dispararEventoCustomizado(acaoFormulario, {
                         dados: this.obterDadosFormulario()
                     });
-                    console.log('✅ DEBUG ConstrutorDeForms: Evento formulario-acao DISPARADO!');
+
                 } else {
-                    console.warn(`❌ DEBUG ConstrutorDeForms: Ação '${acao}' NÃO MAPEADA!`);
+                    // Ação não foi mapeada - continuação normal da execução
                 }
             });
             
-            console.log('✅ DEBUG FRAMEWORK: Listener configurado no container de botões');
+
         } else {
-            console.warn('⚠️ DEBUG FRAMEWORK: Container de botões (.botoes-container) não encontrado');
+            // Container de botões não encontrado - aguardando DOM
         }
         }, 500); // Timeout para aguardar DOM
     }
@@ -468,12 +463,12 @@ export class FormComum extends FormularioBase {
      * @param {Object} detalhe - Dados do evento
      */
     _dispararEventoCustomizado(acao, detalhe) {
-        console.log('🚀 DEBUG ConstrutorDeForms: _dispararEventoCustomizado chamado:', acao, detalhe);
+
         
         // Busca o footer do formulário para disparar o evento
         const formFooter = document.querySelector('#divFormCrud footer');
         
-        console.log('📍 DEBUG ConstrutorDeForms: Footer encontrado:', formFooter);
+
         
         if (formFooter) {
             // Cria evento customizado com dados necessários
@@ -487,13 +482,13 @@ export class FormComum extends FormularioBase {
                 bubbles: true  // Permite que o evento suba na árvore DOM
             });
             
-            console.log('🎯 DEBUG ConstrutorDeForms: *** DISPARANDO EVENTO formulario-acao ***', eventoCustom.detail);
+
             
             // Dispara o evento no footer do formulário
             formFooter.dispatchEvent(eventoCustom);
-            console.log('✅ DEBUG ConstrutorDeForms: Evento formulario-acao ENVIADO!');
+
         } else {
-            console.error('❌ DEBUG ConstrutorDeForms: Footer #divFormCrud footer NÃO ENCONTRADO!');
+            unexpected_error_catcher('Footer #divFormCrud footer NÃO ENCONTRADO');
         }
     }
 
@@ -563,7 +558,7 @@ export class FormComum extends FormularioBase {
         // Implementar salvamento dos dados
         // Por enquanto apenas log
         const dados = this.obterDadosFormulario();
-        console.log('Dados para salvar:', dados);
+
         return true;
     }
 
@@ -657,15 +652,13 @@ export class FormComum extends FormularioBase {
      * @since 2.0.0 Método otimizado com validação prévia
      */
     render() {
-        // � DEBUG TEMPORÁRIO: Rastrear chamadas de render()
-        console.log('🚨 DEBUG: render() chamado!', new Error().stack);
+
         
-        // �🔍 VALIDAÇÃO PRÉVIA: Garante que todas as propriedades estão corretas
+        // 🔍 VALIDAÇÃO PRÉVIA: Garante que todas as propriedades estão corretas
         try {
             this._validarParametros();
         } catch (error) {
-            console.error('❌ FormComum.render(): Erro de validação -', error.message);
-            throw new Error(`Não é possível renderizar formulário: ${error.message}`);
+            error_catcher(error);
         }
         
         // 🏗️ CONFIGURAÇÃO BASE: Container e posicionamento
@@ -688,8 +681,8 @@ export class FormComum extends FormularioBase {
         }
         
         // 🔘 BOTÕES: Sistema do rodapé
-        if (this.grupoBotoes) {
-            console.log('✅ Criando instância CriarBtnRodape com grupos:', this.grupoBotoes);
+        if (this.grupoBotoes) {           
+
             this.criarBotoes = new CriarBtnRodape(this.grupoBotoes);
             this._criarBotoesRodape();
         }
@@ -697,7 +690,7 @@ export class FormComum extends FormularioBase {
         // 🎧 EVENTOS: Configuração de listeners
         this._configurarEscutaEventosRodape();
         
-        console.log('✅ FormComum.render(): Formulário renderizado com sucesso');
+
     }
 
     /**
@@ -736,7 +729,7 @@ export class FormComum extends FormularioBase {
             // ✅ EXATAMENTE como nas tabelas: usa inserirEm()
             this.objSelect.inserirEm(divControles);
             
-            console.log('✅ Selects criadas seguindo padrão das tabelas');
+
         }
     }
 

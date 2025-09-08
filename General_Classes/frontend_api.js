@@ -1,3 +1,6 @@
+// Importando funções de debugging (primeiro para seguir critério)
+import { flow_marker, error_catcher, unexpected_error_catcher } from './Debugger.js';
+
 /**
  * 🌐 CLASSE PRINCIPAL: API Frontend para comunicação com Backend
  * 
@@ -15,15 +18,18 @@
  * 
  * @example
  * // PADRÃO RECOMENDADO: Instância local com configuração por propriedades
- * const api = new api_fe();
- * api.aplicacao = "FinCtl";
+ * const api = new api_fe        console.log('🗄️ Database:', config.database_config);
+        console.log('📋 View atual:', config.view);
+        console.log('🎯 Tabela alvo:', config.tabela_alvo);
+        console.log('📝 Campos obrigatórios:', config.campos_obrigatorios);
+        console.log('📥 Dados form in:', config.dados_form_in); * api.aplicacao = "FinCtl";
  * api.backend_url = "http://localhost:5000";
  * api.database_name = "financas.db";
  * api.database_path = "c:\\path\\to\\database";
  * api.view = "vw_grupos";
  * api.tabela_alvo = "tb_grupos";
  * api.campos = ["Todos"];
- * api.campos_ativos = ["grupo", "descricao"];
+ * api.campos_obrigatorios = ["grupo", "descricao"];
  * 
  * // Uso para consultas
  * const dados = await api.obter_view();
@@ -55,13 +61,13 @@
  * 
  * @property {string} view - Nome da view ativa para consultas (ex: "vw_grupos")
  * @property {string} tabela_alvo - Nome da tabela para operações CRUD (ex: "tb_grupos")
- * @property {Array<string>} campos - Campos retornados em consultas (["Todos"] ou específicos)
- * @property {Array<string>} campos_ativos - Campos utilizados em operações CRUD
+ * @property {Array<string>} campos - Campos retornados de consultas: ["Todos"] (padrão) ou ["campo1", "campo2"] (específicos)
+ * @property {Array<string>} campos_obrigatorios - Campos obrigatórios para validação CRUD: ["campo1", "campo2"] ou ["Todos"] (todos obrigatórios)
  * 
  * @property {Object} dados_form_out - Template de dados enviado para formulário (estrutura vazia)
  * @property {Object} dados_form_in - Dados preenchidos recebidos do formulário
  */
-export class api_fe {
+export default class api_fe {
     /**
      * 🏗️ CONSTRUCTOR: Inicializa instância de API Frontend
      * 
@@ -220,6 +226,139 @@ export class api_fe {
         console.log(`✅ api_fe inicializada para aplicação '${app_name}' apontando para ${backend_url}`);
     }
     
+    // ===============================================================
+    // 📋 MÉTODO ATIVO - REQUISIÇÕES
+    // ===============================================================
+    
+    /**
+     * Método genérico para buscar dados do backend para população de formulários
+     * 
+     * @returns {Promise<Object>} Dados recebidos do backend ou dicionário vazio
+     */
+    async consulta_dados_form() {
+        try {
+            console.log('📋 consulta_dados_form() iniciado');
+            
+            // Validação básica
+            if (!this.view) {
+                throw new Error("View não configurada. Configure this.view primeiro.");
+            }
+            
+            // Faz requisição direta para o endpoint /consultar_dados_db
+            const url = `${this.backend_url}/consultar_dados_db`;
+            const payload = {
+                view: this.view,
+                campos: this.campos || ["Todos"],
+                database_path: this.database_path || "",
+                database_name: this.database_name || ""
+            };
+
+            flow_marker(`🌐 Fazendo requisição para: ${url}`, payload);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: this.headers,
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const resultado = await response.json();
+            flow_marker('✅ consulta_dados_form() concluído');
+            return resultado; // Backend já retorna no formato { dados: [...], mensagem: "sucesso" }
+            
+        } catch (error) {
+            error_catcher('❌ Erro no consulta_dados_form():', error);
+            return {
+                dados: [],
+                mensagem: error.message
+            };
+        }
+    }
+    
+    /**
+     * 📝 Atualiza registro existente no banco de dados
+     * 
+     * @param {Object} dados_para_update - Dados para atualizar (dicionário chave-valor)
+     * @returns {Promise<Object>} Resultado da operação de update
+     */
+    async update_data(dados_para_update) {
+        try {
+            flow_marker('🔄 update_data() iniciado');
+            
+            // Validação básica das propriedades obrigatórias
+            if (!this.tabela_alvo) {
+                throw new Error("Propriedade tabela_alvo não configurada");
+            }
+            
+            if (!dados_para_update || Object.keys(dados_para_update).length === 0) {
+                throw new Error("Dados para update não fornecidos");
+            }
+            
+            // Monta payload completo para o backend
+            const url = `${this.backend_url}/update_data_db`;
+            const payload = {
+                tabela_alvo: this.tabela_alvo,
+                campos: this.campos || [],
+                campos_obrigatorios: this.campos_obrigatorios || [],
+                database_name: this.database_name || "",
+                database_path: this.database_path || "",
+                dados: dados_para_update
+            };
+            
+            flow_marker(`🌐 Enviando UPDATE para: ${url}`, payload);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: this.headers,
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const resultado = await response.json();
+            flow_marker('✅ update_data() concluído');
+            return resultado;
+            
+        } catch (error) {
+            error_catcher('Erro no update_data', error);
+            return { 
+                sucesso: false, 
+                mensagem: error.message 
+            };
+        }
+    }
+    
+
+ /**
+     * Método genérico para atualizar registros noend 
+     * 
+     * @returns {Promise<Object>} Retorna True se bem sucedido na atualização
+     */
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+*********************************************************************
+                       CÓDDIGO OBSOLETO - NÃO USAR
+*********************************************************************
+*/
+
+
     // =====================================
     // 🔧 MÉTODOS DE CONFIGURAÇÃO
     // =====================================
@@ -558,69 +697,6 @@ export class api_fe {
     // 📋 MÉTODOS DE FORMULÁRIOS
     // =====================================
     
-    /**
-     * Método genérico para buscar dados do backend para população de formulários
-     * 
-     * @param {string|Object} formulario_ou_tipo - Nome do formulário ou objeto de configuração
-     * @param {Object} [configuracao={}] - Configurações específicas do formulário
-     * @param {Object} [opcoes={}] - Opções adicionais de personalização
-     * @returns {Promise<Object>} Dados recebidos do backend ou dicionário vazio
-     * 
-     * @example
-     * // Busca básica por nome
-     * const dados = await api.popularform("grupos");
-     * 
-     * @example
-     * // Busca com configuração específica
-     * const dados = await api.popularform("lancamentos", {
-     *     filtro: "mes_atual",
-     *     ordenacao: "data_desc"
-     * });
-     */
-    async consulta_dados_form() {
-        try {
-            console.log('📋 consulta_dados_form() iniciado');
-            
-            // Validação básica
-            if (!this.view) {
-                throw new Error("View não configurada. Configure this.view primeiro.");
-            }
-            
-            // Faz requisição direta para o endpoint /consultar_dados_db
-            const url = `${this.backend_url}/consultar_dados_db`;
-            const payload = {
-                view: this.view,
-                campos: this.campos || ["Todos"],
-                database_path: this.database_path || "",
-                database_name: this.database_name || ""
-            };
-            
-            console.log(`🌐 Fazendo requisição para: ${url}`, payload);
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: this.headers,
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const resultado = await response.json();
-            console.log(`✅ consulta_dados_form() concluído:`, resultado);
-            
-            return resultado; // Backend já retorna no formato { dados: [...], mensagem: "sucesso" }
-            
-        } catch (error) {
-            console.error('❌ Erro no consulta_dados_form():', error);
-            
-            return {
-                dados: [],
-                mensagem: error.message
-            };
-        }
-    }
     
     // =====================================
     // 🔧 MÉTODOS UTILITÁRIOS
@@ -686,7 +762,6 @@ export class api_fe {
     limpar_dados() {
         this.dados_form_in = {};
         this.dados_form_out = {};
-        this.campos_ativos = [];
         console.log('🧹 Dados da instância API limpos');
     }
     
@@ -724,7 +799,7 @@ export class api_fe {
             view: this.view,
             tabela_alvo: this.tabela_alvo,
             campos: this.campos,
-            campos_ativos: this.campos_ativos,
+            campos_obrigatorios: this.campos_obrigatorios,
             
             // Formulários
             dados_form_in: this.dados_form_in,

@@ -1,82 +1,5 @@
-/**
- ****************                } catch (error) {
-                    console.error(`❌ REAL: Erro ao registrar listener para ${botaoId}:`, error);
-                }
-            } else {
-                console.warn(`⚠️ REAL: Elemento não encontrado para botão: ${botaoId}`);
-                        // TESTE: Verificar se o el        console.log(`📊 DEBUG: Total de listeners registrados: ${listenersRegistrados} de ${this.botoesElementos.size}`);
-        
-        // TESTE IMEDIATO: Buscar botão pelo ID e testar
-        console.log('🤖 TESTE IMEDIATO: Buscando botão Encerrar...');
-        const botaoTeste = document.getElementById('btn_encerrar');
-        if (botaoTeste) {
-            console.log('✅ TESTE: Botão encontrado pelo ID!');
-            console.log('📋 TESTE: Propriedades:', {
-                id: botaoTeste.id,
-                tagName: botaoTeste.tagName,
-                className: botaoTeste.className,
-                textContent: botaoTeste.textContent,
-                disabled: botaoTeste.disabled,
-                offsetWidth: botaoTeste.offsetWidth,
-                offsetHeight: botaoTeste.offsetHeight
-            });
-            
-            // Teste direto de clique
-            botaoTeste.onclick = function() {
-                console.log('🎯🎯🎯 TESTE MANUAL ONCLICK FUNCIONOU! 🎯🎯🎯');
-                alert('SUCESSO! Botão funcionou com onclick direto!');
-            };
-            
-            console.log('✅ TESTE: onclick adicionado! Agora clique manualmente no botão.');
-        } else {
-            console.error('❌ TESTE: Botão btn_encerrar NÃO encontrado!');
-        }
-    }ento é o correto
-                    console.log(`🔍 DETALHES ELEMENTO ${botaoId}:`);
-                    console.log(`  ID: "${elemento.id}"`);
-                    console.log(`  Classes: "${elemento.className}"`);
-                    console.log(`  TagName: "${elemento.tagName}"`);
-                    console.log(`  IsConnected: ${elemento.isConnected}`);
-                    console.log(`  Disabled: ${elemento.disabled}`);
-                    console.log(`  Style.display: "${elemento.style.display}"`);
-                    console.log(`  Style.visibility: "${elemento.style.visibility}"`);
-                    console.log(`  OffsetWidth: ${elemento.offsetWidth}`);
-                    console.log(`  OffsetHeight: ${elemento.offsetHeight}`);
-                    console.log(`  ParentElement:`, elemento.parentElement?.tagName);
-                    console.log(`  OuterHTML: ${elemento.outerHTML.substring(0, 150)}...`);}
-        });rutorBtnRodapeForms *******************
- * Constrói os grupos de botões dos formulários que são exibidos no rodapé da interface da aplicação
- */
+import { error_catcher, unexpected_error_catcher } from "./Debugger.js";
 
-/**
- * Classe para construir botões de formulário com grupos configuráveis
- *                     elemento.addEventListener('mouseleave', () => {
-                        this._resetarEstadoBotao(elemento, botaoId);
-                    });
-                    
-                    // Força reset quando focus é perdido
-                    elemento.addEventListener('blur', () => {
-                        this._resetarEstadoBotao(elemento, botaoId);
-                    });
-                    
-                    // Event listener para mouse hover
-                    elemento.addEventListener('mouseenter', () => {
-                        if (!elemento.disabled) {
-                            elemento.classList.add('hover-ativo');
-                        }
-                    });
-                } catch (error) {
-                    console.error('❌ DEBUG: ERRO ao registrar listeners para:', botaoId, error);
-                }
-            } else {
-                console.error('❌ DEBUG: Elemento não encontrado para:', botaoId);
-            }
-        });
-        
-        console.log('📊 DEBUG: Total de listeners registrados:', listenersRegistrados, 'de', this.botoesElementos.size);
-    }idade de grupos (Encerrar, Navegação, CRUD)
- * Sistema de ativação por array ['S','N','S'] para cada grupo
- */
 
 export class CriarBtnRodape {
     /**
@@ -155,8 +78,7 @@ export class CriarBtnRodape {
         const gruposAtivos = this.grupoBotoes.map((status, index) => 
             status === 'S' ? `grupo${index + 1}` : null
         ).filter(Boolean);
-        
-        console.log(`CriarBtnRodape inicializada: Grupos ativos [${gruposAtivos.join(', ')}]`);
+        // ========= LOG A DELETAR - FINAL =========
     }
 
     /**
@@ -276,9 +198,7 @@ export class CriarBtnRodape {
      * @private
      */
     _mapearElementos() {
-        console.log('🔍 DEBUG: this é:', this);
-        console.log('🔍 DEBUG: this.botoesElementos é:', this.botoesElementos);
-        
+      
         // Lista de todos os possíveis botões
         const todosBotoes = [
             'btn_encerrar', 'btn_primeiro', 'btn_recua', 'btn_avanca', 
@@ -303,32 +223,19 @@ export class CriarBtnRodape {
      * @private
      */
     _registrarEventListeners() {
-        console.log('🔍 DEBUG: Iniciando _registrarEventListeners, Map tem:', this.botoesElementos.size, 'elementos');
+     // ========= LOG A DELETAR - FINAL =========
         
         let listenersRegistrados = 0;
         
         this.botoesElementos.forEach((elemento, botaoId) => {
             if (elemento) {
-                try {
-                    console.log(`🔧 REAL: Registrando listener para botão: ${botaoId}`);
-                    
+                try {                 
                     // Event listener padrão para o botão
                     elemento.addEventListener('click', (event) => {
-                        console.log(`🎯 Botão clicado: ${botaoId}`);
                         this._handleBotaoClick(botaoId, event);
                     });
                     
-                    // TESTE: Verificar se o elemento é o correto
-                    console.log(`� TESTE: Elemento ${botaoId}:`, {
-                        id: elemento.id,
-                        className: elemento.className,
-                        tagName: elemento.tagName,
-                        parentElement: elemento.parentElement,
-                        isConnected: elemento.isConnected
-                    });
-                    
                     listenersRegistrados++;
-                    console.log(`✅ REAL: Listener registrado para: ${botaoId}`);
                     
                     // Event listeners para mouse
                     elemento.addEventListener('mouseleave', () => {
@@ -346,14 +253,13 @@ export class CriarBtnRodape {
                     });
                     
                 } catch (error) {
-                    console.error('❌ DEBUG: ERRO ao registrar listeners para:', botaoId, error);
+                    error_catcher('Erro ao registrar listener para botão', error);
                 }
             } else {
-                console.error('❌ DEBUG: Elemento não encontrado para:', botaoId);
+                unexpected_error_catcher;
             }
         });
         
-        console.log('📊 DEBUG: Total de listeners registrados:', listenersRegistrados, 'de', this.botoesElementos.size);
     }
     
     /**
@@ -392,8 +298,7 @@ export class CriarBtnRodape {
                     elemento.setAttribute('title', tituloOriginal);
                 }
                 
-                // Log para debug
-                console.log(`🔄 Estado resetado para botão ${botaoId} do ${grupo}`);
+               // ========= LOG A DELETAR - FINAL =========
             }
         }, 50);
     }
@@ -407,9 +312,7 @@ export class CriarBtnRodape {
      * @private
      */
     _handleBotaoClick(botaoId, event) {
-        console.log('🎯🎯🎯 *** CLIQUE MANUAL DETECTADO! *** 🎯🎯🎯');
-        console.log('📍 PROVA ABSOLUTA: _handleBotaoClick foi chamado!');
-        console.log('🔍 Detalhes do clique:', { botaoId, event, target: event.target });
+       // ========= LOG A DELETAR - FINAL =========
         
         // Impede o comportamento padrão (submit do formulário)
         event.preventDefault();
@@ -465,14 +368,11 @@ export class CriarBtnRodape {
             // Dispara o evento no container com try-catch para capturar erros
             try {
                 container.dispatchEvent(eventoCustom);
-                console.log(`✅ CRIARBTARODAPE: Evento 'botao-clicado' disparado com sucesso para ação '${acao}'`);
             } catch (error) {
-                console.error('❌ ERRO ao disparar evento botao-clicado:', error);
-                console.error('Stack trace:', error.stack);
-                console.error('Evento que causou erro:', eventoCustom);
+                error_catcher('Erro ao disparar evento botao-clicado', error);
             }
         } else {
-            console.warn('❌ CRIARBTARODAPE: Container de botões não encontrado para disparar evento');
+            unexpected_error_catcher('Container de botões não encontrado');
         }
     }
 
