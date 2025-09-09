@@ -300,11 +300,22 @@ function processarSalvar() {
 
    // Chama a função de validação
     if (!valida_salvar()) {
-        return; // Aborta operação se validação falhar
+        return; // Aborta operação se validação falher
     }
     
-
-    // TODO: Implementar lógica de salvamento após confirmação
+    // DECISÃO: Edição ou Inclusão baseada no botão ativo
+    if (botao_ativo === 'editar') {
+        flow_marker('📝 Modo EDITAR detectado - chamando atualizar_registro()');
+        atualizar_registro();
+        
+    } else if (botao_ativo === 'incluir') {
+        flow_marker('➕ Modo INCLUIR detectado - chamando incluir_registro_novo()');
+        incluir_registro_novo();
+        
+    } else {
+        error_catcher('Estado inválido para salvar', `botao_ativo: ${botao_ativo}`);
+        alert('Estado inválido para operação de salvamento.');
+    }
 }
 
 /**
@@ -424,6 +435,57 @@ async function atualizar_registro() {
         
     } catch (error) {
         error_catcher('Erro no atualizar_registro', error);
+        return {
+            sucesso: false,
+            mensagem: `Erro: ${error.message}`
+        };
+    }
+}
+
+/**
+ * ➕ Inclui novo registro no banco de dados
+ * Captura dados atuais do formulário e envia para API
+ * @returns {Object} Resultado da operação de inserção
+ */
+async function incluir_registro_novo() {
+    try {
+        flow_marker('➕ incluir_registro_novo() iniciado');
+        
+        if (!window.api_finctl) {
+            throw new Error("API global não disponível (window.api_finctl)");
+        }
+        
+        // Captura dados atuais do formulário
+        const dados_novo_registro = _capturarDadosAtuaisFormulario();
+        
+        if (!dados_novo_registro || Object.keys(dados_novo_registro).length === 0) {
+            throw new Error("Nenhum dado capturado do formulário");
+        }
+        
+        flow_marker('📋 Dados capturados do formulário para inserção', dados_novo_registro);
+        
+        // Chama API para inserir no backend
+        const resultadoAPI = await window.api_finctl.incluir_reg_novo(dados_novo_registro);
+        
+        if (resultadoAPI.sucesso) {
+            flow_marker('✅ Novo registro inserido com sucesso');
+            
+            // Sair do modo inclusão
+            _setModoEditarNovo(false);
+            botao_ativo = '';
+            
+            // TODO: Atualizar lista de dados disponíveis e navegar para o novo registro
+            
+            return {
+                sucesso: true,
+                mensagem: resultadoAPI.mensagem || "Registro inserido com sucesso"
+            };
+        } else {
+            throw new Error(resultadoAPI.mensagem || "Erro na inserção");
+        }
+        
+    } catch (error) {
+        error_catcher('Erro no incluir_registro_novo', error);
         return {
             sucesso: false,
             mensagem: `Erro: ${error.message}`
@@ -654,9 +716,11 @@ function valida_salvar() {
     
     return true;
 }
-//*************************************************************
-//                      FUNÇÕES AUXILIARES
-// ************************************************************
+/*
+============================================================
+                   FUNÇÕES AUXILIARES
+=============================================================
+*/
 /**
  * 📥 CAPTURA DADOS ATUAIS DO FORMULÁRIO
  * Coleta todos os valores atuais dos campos do formulário

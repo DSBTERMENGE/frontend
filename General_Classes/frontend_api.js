@@ -333,6 +333,61 @@ export default class api_fe {
         }
     }
     
+    /**
+     * ➕ Insere novo registro no banco de dados
+     * 
+     * @param {Object} dados_novo_registro - Dados do novo registro (dicionário chave-valor)
+     * @returns {Promise<Object>} Resultado da operação de inserção
+     */
+    async incluir_reg_novo(dados_novo_registro) {
+        try {
+            flow_marker('➕ incluir_reg_novo() iniciado');
+            
+            // Validação básica das propriedades obrigatórias
+            if (!this.tabela_alvo) {
+                throw new Error("Propriedade tabela_alvo não configurada");
+            }
+            
+            if (!dados_novo_registro || Object.keys(dados_novo_registro).length === 0) {
+                throw new Error("Dados para inserção não fornecidos");
+            }
+            
+            // Monta payload completo para o backend
+            const url = `${this.backend_url}/incluir_reg_novo_db`;
+            const payload = {
+                tabela_alvo: this.tabela_alvo,
+                campos: this.campos || [],
+                campos_obrigatorios: this.campos_obrigatorios || [],
+                database_name: this.database_name || "",
+                database_path: this.database_path || "",
+                dados: dados_novo_registro
+            };
+            
+            flow_marker(`🌐 Enviando INSERT para: ${url}`, payload);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: this.headers,
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const resultado = await response.json();
+            flow_marker('✅ incluir_reg_novo() concluído');
+            return resultado;
+            
+        } catch (error) {
+            error_catcher('Erro no incluir_reg_novo', error);
+            return { 
+                sucesso: false, 
+                mensagem: error.message 
+            };
+        }
+    }
+    
 
  /**
      * Método genérico para atualizar registros noend 
@@ -358,11 +413,6 @@ export default class api_fe {
 *********************************************************************
 */
 
-
-    // =====================================
-    // 🔧 MÉTODOS DE CONFIGURAÇÃO
-    // =====================================
-    
     /**
      * Configura a view e tabela ativas para operações de dados
      * 
