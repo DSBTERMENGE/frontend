@@ -49,6 +49,7 @@ import { flow_marker, error_catcher, unexpected_error_catcher } from './Debugger
  * independência de configurações e estados.
  * 
  * @property {string} aplicacao - Nome da aplicação que utiliza esta instância
+ * @property {string} application_path - Caminho do repositório da aplicação (ex: "C:\\Applications_DSB\\FinCtl")
  * @property {string} versao - Versão da aplicação (opcional)
  * @property {boolean} debug - Flag para ativar logs detalhados de debug
  * @property {string} backend_url - URL completa do servidor backend (ex: "http://localhost:5000")
@@ -99,6 +100,13 @@ export default class api_fe {
          * @example "FinCtl", "Estoque", "CRM"
          */
         this.aplicacao = app_name;
+        
+        /**
+         * Caminho do repositório da aplicação (path completo)
+         * @type {string}
+         * @example "C:\\Applications_DSB\\FinCtl", "C:\\Applications_DSB\\Estoque"
+         */
+        this.application_path = "";
         
         /**
          * Versão da aplicação (informativo)
@@ -237,11 +245,11 @@ export default class api_fe {
      */
     async consulta_dados_form() {
         try {
-            console.log('📋 consulta_dados_form() iniciado');
+            flow_marker('📋 consulta_dados_form() iniciado');
             
             // Validação básica
             if (!this.view) {
-                throw new Error("View não configurada. Configure this.view primeiro.");
+                error_catcher('❌ Erro no consulta_dados_form():', error);
             }
             
             // Faz requisição direta para o endpoint /consultar_dados_db
@@ -250,7 +258,8 @@ export default class api_fe {
                 view: this.view,
                 campos: this.campos || ["Todos"],
                 database_path: this.database_path || "",
-                database_name: this.database_name || ""
+                database_name: this.database_name || "",
+                application_path: this.application_path
             };
 
             flow_marker(`🌐 Fazendo requisição para: ${url}`, payload);
@@ -305,7 +314,8 @@ export default class api_fe {
                 campos_obrigatorios: this.campos_obrigatorios || [],
                 database_name: this.database_name || "",
                 database_path: this.database_path || "",
-                dados: dados_para_update
+                dados: dados_para_update,
+                application_path: this.application_path
             };
             
             flow_marker(`🌐 Enviando UPDATE para: ${url}`, payload);
@@ -360,7 +370,8 @@ export default class api_fe {
                 campos_obrigatorios: this.campos_obrigatorios || [],
                 database_name: this.database_name || "",
                 database_path: this.database_path || "",
-                dados: dados_novo_registro
+                dados: dados_novo_registro,
+                application_path: this.application_path
             };
             
             flow_marker(`🌐 Enviando INSERT para: ${url}`, payload);

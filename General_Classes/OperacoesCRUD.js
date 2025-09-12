@@ -350,7 +350,7 @@ async function popularFormulario() {
         const resultadoAPI = await window.api_finctl.consulta_dados_form();
         
         if (resultadoAPI.mensagem === "sucesso") {
-            const dadosRecebidos = resultadoAPI.dados;
+            const dadosRecebidos = resultadoAPI.dados.dados;
             if (dadosRecebidos && dadosRecebidos.length > 0) {
                 dadosDisponiveis = dadosRecebidos || [];
                 reg_num = 0; 
