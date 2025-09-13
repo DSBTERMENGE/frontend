@@ -99,7 +99,7 @@ function configurarListenersNavegacao() {
                 // Processa TODAS as ações: navegação + CRUD
                 if (['primeiro', 'anterior', 'proximo', 'ultimo', 'encerrar', 'editar', 'incluir', 'salvar', 'deletar'].includes(acao)) {
 
-                    processarAcaoGenerica(acao, instancia, dados);
+                    btnRodapeForm_Click(acao, instancia, dados);
                 } else {
 
                 }
@@ -118,12 +118,12 @@ function configurarListenersNavegacao() {
 //************************************************************
 
 /**
- * 🔄 PROCESSADOR PRINCIPAL: Switch case para TODAS as ações (navegação + CRUD)
+ * 🔄 RESPOSTA AOS CLICKS DOS BOTÕES DA BARRA DE FERRAMENTAS NO RODAPÉ DOS FORMULARIOS
  * @param {string} acao - Ação (primeiro, anterior, proximo, ultimo, encerrar, editar, incluir, salvar, deletar)
  * @param {Object} instancia - Instância do formulário
  * @param {Object} dados - Dados do formulário
  */
-function processarAcaoGenerica(acao, instancia, dados) {
+function btnRodapeForm_Click(acao, instancia, dados) {
 
     
     // 🛡️ PROTEÇÃO: Verificar se está em modo edição/inclusão
@@ -265,9 +265,8 @@ function processarEncerrar(instancia, dados) {
  * ✏️ Handler para ação EDITAR
  */
 function processarEditar() {
-
-    // TODO: Implementar lógica de edição
-}
+ // Sem necessidade de código, As manipulações ja foram feitas no switch case
+ }
 
 /**
  * ➕ Handler para ação INCLUIR
@@ -289,8 +288,7 @@ function processarIncluir() {
  * 💾 Handler para ação SALVAR
  */
 function processarSalvar() {
-    
-    /*const confirmacao = confirm("Deseja salvar este registro?");
+   /*const confirmacao = confirm("Deseja salvar este registro?");
     
     if (!confirmacao) {
         return; // Usuário cancelou - aborta operação
@@ -315,7 +313,8 @@ function processarSalvar() {
     } else {
         error_catcher('Estado inválido para salvar', `botao_ativo: ${botao_ativo}`);
         alert('Estado inválido para operação de salvamento.');
-    }
+    } 
+    
 }
 
 /**
@@ -396,7 +395,7 @@ async function popularFormulario() {
  * @returns {Object} Resultado da operação de update
  */
 async function atualizar_registro() {
-    try {
+  try {
         flow_marker('🔄 atualizar_registro() iniciado');
         
         if (!window.api_finctl) {
@@ -439,7 +438,7 @@ async function atualizar_registro() {
             sucesso: false,
             mensagem: `Erro: ${error.message}`
         };
-    }
+    } 
 }
 
 /**
