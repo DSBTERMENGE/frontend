@@ -72,12 +72,8 @@ let dadosOriginaisRegistro = {}; // Backup dos dados originais do registro atual
 //                      LISTENERS
 //************************************************************
 
-/**
- * 🎧 Configura listeners para eventos de botões genericamente
- */
+ // 🎧 CONFIGURA LISTENERS PARA EVENTOS DE BOTÕES DO FORMULÁRIO
 function configurarListenersNavegacao() {
-
-    
     // Aguarda o DOM estar pronto
     setTimeout(() => {
         const formFooter = document.querySelector('footer');
@@ -114,7 +110,7 @@ function configurarListenersNavegacao() {
 }
 
 //************************************************************
-//                  PROCESSADOR PRINCIPAL
+//            RESPOSTAS AS CLICKS DOS BOTÕES
 //************************************************************
 
 /**
@@ -123,8 +119,8 @@ function configurarListenersNavegacao() {
  * @param {Object} instancia - Instância do formulário
  * @param {Object} dados - Dados do formulário
  */
-function btnRodapeForm_Click(acao, instancia, dados) {
 
+function btnRodapeForm_Click(acao, instancia, dados) {
     
     // 🛡️ PROTEÇÃO: Verificar se está em modo edição/inclusão
     if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
@@ -160,8 +156,8 @@ function btnRodapeForm_Click(acao, instancia, dados) {
             
         case 'editar':
             botao_ativo = 'editar';
-            // Captura dados originais antes de entrar em modo edição
-            dadosOriginaisRegistro = _capturarDadosAtuaisFormulario();
+            // dadosOriginaisRegistro já foi populado na função _popularFormularioAutomatico (linha 842)
+            // Não sobrescrever aqui pois perderia o idgrupo!
             _setModoEditarNovo(true);
             processarEditar();
             break;
@@ -186,11 +182,7 @@ function btnRodapeForm_Click(acao, instancia, dados) {
 }
 
 //************************************************************
-//                 HANDLERS DE NAVEGAÇÃO
-//************************************************************
-
-//************************************************************
-//                    HANDLERS CRUD
+//            HANDLERS PARA OPERAÇÕES CRUD
 //************************************************************
 
 /**
@@ -402,8 +394,18 @@ async function atualizar_registro() {
             throw new Error("API global não disponível (window.api_finctl)");
         }
         
-        // Captura dados atuais do formulário
-        const dados_para_update = _capturarDadosAtuaisFormulario();
+        // Captura alterações do formulário (mantém semântica da função)
+        const alteracoesDom = _capturarDadosAtuaisFormulario();
+        
+        // DEBUG: Verificar dados antes da mesclagem
+        flow_marker('🔍 ANTES MESCLAGEM - dadosOriginaisRegistro', dadosOriginaisRegistro);
+        flow_marker('🔍 ANTES MESCLAGEM - alteracoesDom', alteracoesDom);
+        
+        // Mescla com dados persistentes para preservar chave primária
+        const dados_para_update = { ...dadosOriginaisRegistro, ...alteracoesDom };
+        
+        // DEBUG: Verificar resultado da mesclagem
+        flow_marker('🔍 APÓS MESCLAGEM - dados_para_update', dados_para_update);
         
         if (!dados_para_update || Object.keys(dados_para_update).length === 0) {
             throw new Error("Nenhum dado capturado do formulário");
@@ -423,6 +425,15 @@ async function atualizar_registro() {
             
             // Atualiza backup dos dados originais
             dadosOriginaisRegistro = { ...dados_para_update };
+            
+            // ✨ SINCRONIZAÇÃO: Atualiza array de navegação com dados atualizados
+            if (dadosDisponiveis && dadosDisponiveis[reg_num]) {
+                dadosDisponiveis[reg_num] = { ...dados_para_update };
+                flow_marker('🔄 Array dadosDisponiveis sincronizado', { 
+                    reg_num, 
+                    dados_atualizados: dados_para_update 
+                });
+            }
             
             return {
                 sucesso: true,
@@ -606,7 +617,7 @@ function valida_Encerrar_Novo() {
     }
 }
 
-/**
+/*
  * � VALIDAÇÃO ENCERRAR EDIÇÃO
  * Compara valores atuais dos campos com os dados originais do registro
  * Se houver alterações, pergunta se deseja cancelar as alterações
@@ -715,19 +726,27 @@ function valida_salvar() {
     
     return true;
 }
-/*
-============================================================
+
+
+/* ============================================================
                    FUNÇÕES AUXILIARES
 =============================================================
 */
-/**
- * 📥 CAPTURA DADOS ATUAIS DO FORMULÁRIO
+ /* 📥 CAPTURA DADOS ATUAIS DO FORMULÁRIO
  * Coleta todos os valores atuais dos campos do formulário
  * @returns {Object} Objeto com valores atuais dos campos
  */
 function _capturarDadosAtuaisFormulario() {
     const dados = {};
-    const campos = document.querySelectorAll('input, textarea, select');
+    
+    // 🎯 CORREÇÃO: Captura apenas campos do formCrud específico
+    const formCrud = document.getElementById('formCrud');
+    if (!formCrud) {
+        console.warn('⚠️ formCrud não encontrado');
+        return {};
+    }
+    
+    const campos = formCrud.querySelectorAll('input, textarea, select');
     
     campos.forEach(campo => {
         if (campo.id) {
@@ -742,12 +761,8 @@ function _capturarDadosAtuaisFormulario() {
     return dados;
 }
 
-/**
- * ⚠️ BEEP: Indica que chegou ao limite de navegação
- */
+ //* ⚠️ BEEP: Indica que chegou ao limite de navegação
 function emitirBeepLimite(limite) {
-
-    
     // Tentativa de beep real (alguns navegadores suportam)
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -768,8 +783,7 @@ function emitirBeepLimite(limite) {
     }
 }
 
-/**
- * 🔧 MODO EDITAR/NOVO: Controla estado dos campos
+ /* 🔧 ALTERA FUNDO DOS FORMULÁRIOS NO MODO EDITAR/INCLUIR
  * @param {boolean} ativar - true = campos editáveis/amarelos, false = readonly/cor padrão
  */
 function _setModoEditarNovo(ativar) {
@@ -804,11 +818,10 @@ function _setModoEditarNovo(ativar) {
     }
 }
 
-/**
- * 🔄 Popula formulário automaticamente com dados fornecidos
- */
+ // 🔄 POPULA FORM. AUTOMATICAMENTE COM DADOS FORNECIDOS
 function _popularFormularioAutomatico(dados) {
-
+    // DEBUG: Verificar dados recebidos para população
+    flow_marker('🔍 DEBUG POPULAÇÃO - dados recebidos', dados);
     
     if (!dados) {
         console.warn('⚠️ Nenhum dado fornecido para popular formulário');
@@ -831,24 +844,22 @@ function _popularFormularioAutomatico(dados) {
 
         }
     });
-    
-
     _setModoEditarNovo(false); // Proteger campos contra alteração involuntária
     
     // Atualiza backup dos dados originais para navegação
     dadosOriginaisRegistro = { ...dados };
 }
 
-/**
- * 🚨 ALERTA DE ESTADO - Informa usuário sobre processo de edição/inclusão em andamento
- * Emite mensagem específica baseada no valor da variável botao_ativo
- */
+
+ // 🚨 ALERTA QUE O FORMULÁRIO ESTÁ EM EDIÇÃO OU INCLUSÃO
 function AlertaEstadoDeEdicao_Inclusao() {
     const operacao = botao_ativo === 'editar' ? 'edição' : 'inclusão';
     alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
 }
 
+
 export {
     popularFormulario  // Única função externa - para população inicial
 };
+
 
