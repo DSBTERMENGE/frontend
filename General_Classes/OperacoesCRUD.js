@@ -312,14 +312,81 @@ function processarSalvar() {
 /**
  * 🗑️ Handler para ação DELETAR
  */
-function processarDeletar() {
-    const confirmacao = confirm("Tem certeza que deseja deletar este registro?");
-    
-    if (!confirmacao) {
-        return; // Usuário cancelou - aborta operação
+async function processarDeletar() {
+    try {
+        const confirmacao = confirm("Tem certeza que deseja deletar este registro?");
+        
+        if (!confirmacao) {
+            return; // Usuário cancelou - aborta operação
+        }
+
+        flow_marker('🗑️ processarDeletar() iniciado');
+
+        if (!window.api_finctl) {
+            throw new Error("API global não disponível (window.api_finctl)");
+        }
+
+        // Captura dados do registro atual para enviar como identificação
+        const registroParaDeletar = dadosDisponiveis[reg_num];
+        
+        if (!registroParaDeletar) {
+            throw new Error("Registro atual não encontrado para exclusão");
+        }
+
+        flow_marker('🗑️ Dados do registro para exclusão', registroParaDeletar);
+
+        // Chama API para deletar no backend (quando implementada)
+        // const resultadoAPI = await window.api_finctl.deletar_registro(registroParaDeletar);
+        
+        // SIMULAÇÃO: Por enquanto simula sucesso até implementar endpoint DELETE
+        const resultadoAPI = { sucesso: true, mensagem: "Registro deletado com sucesso" };
+
+        if (resultadoAPI.sucesso) {
+            flow_marker('✅ Registro deletado com sucesso');
+
+            // 🔄 SINCRONIZAÇÃO DELETE: Remove registro do array local
+            dadosDisponiveis.splice(reg_num, 1);
+
+            // 📍 AJUSTE DE POSIÇÃO: Move reg_num uma unidade para trás
+            reg_num = reg_num - 1;
+
+            if (reg_num < 0 || dadosDisponiveis.length === 0) {
+                // 🎯 CENÁRIO 2: DELETE último registro → Auto modo inclusão
+                reg_num = -1;
+                
+                // Ativa modo inclusão automático
+                botao_ativo = 'incluir';
+                _setModoEditarNovo(true);
+                _limparFormulario();
+                
+                flow_marker('🎯 Modo inclusão automático ativado - último registro deletado', {
+                    total_registros: dadosDisponiveis.length
+                });
+            } else {
+                // Popula com registro anterior
+                _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
+                flow_marker('🔄 DELETE - navegou para registro anterior', {
+                    reg_num: reg_num,
+                    total_registros: dadosDisponiveis.length
+                });
+            }
+
+            return {
+                sucesso: true,
+                mensagem: resultadoAPI.mensagem || "Registro deletado com sucesso"
+            };
+        } else {
+            throw new Error(resultadoAPI.mensagem || "Erro na exclusão");
+        }
+
+    } catch (error) {
+        error_catcher('Erro no processarDeletar', error);
+        alert(`Erro ao deletar registro: ${error.message}`);
+        return {
+            sucesso: false,
+            mensagem: `Erro: ${error.message}`
+        };
     }
-    
-    // TODO: Implementar lógica de exclusão após confirmação
 }
 
 //*************************************************************
@@ -360,11 +427,23 @@ async function popularFormulario() {
                     mensagem: `Formulário populado com ${dadosRecebidos.length} registros`
                 };
             } else {
-                console.warn("⚠️ Nenhum dado retornado da API");
+                // 🎯 CENÁRIO 1: Sem dados na abertura → Auto modo inclusão
+                console.warn("⚠️ Nenhum dado retornado da API - ativando modo inclusão automático");
+                
+                dadosDisponiveis = [];
+                reg_num = -1;
+                
+                // Ativa modo inclusão automático
+                botao_ativo = 'incluir';
+                _setModoEditarNovo(true);
+                _limparFormulario();
+                
+                flow_marker('🎯 Modo inclusão automático ativado - tabela vazia');
+                
                 return {
-                    sucesso: false,
+                    sucesso: true,
                     dados: [],
-                    mensagem: "Nenhum registro encontrado"
+                    mensagem: "Tabela vazia - modo inclusão ativado automaticamente"
                 };
             }
         } else {
@@ -419,20 +498,35 @@ async function atualizar_registro() {
         if (resultadoAPI.sucesso) {
             flow_marker('✅ Registro atualizado com sucesso');
             
+            // 🔄 SINCRONIZAÇÃO SILENCIOSA: Atualiza dadosDisponiveis e recalcula reg_num
+            if (resultadoAPI.dados_atualizados && dadosDisponiveis[reg_num]) {
+                // 1. Captura PK do registro atual (antes de substituir array)
+                const pkAtual = dadosDisponiveis[reg_num].idgrupo;
+                
+                // 2. Substitui array completo com dados atualizados do backend
+                dadosDisponiveis = resultadoAPI.dados_atualizados;
+                
+                // 3. Localiza nova posição da PK no array atualizado
+                const novaPosicao = dadosDisponiveis.findIndex(item => item.idgrupo === pkAtual);
+                
+                // 4. Atualiza reg_num para nova posição (se encontrada)
+                if (novaPosicao !== -1) {
+                    reg_num = novaPosicao;
+                    flow_marker('🔄 Sincronização UPDATE completa', { 
+                        pk_registro: pkAtual,
+                        nova_posicao: reg_num,
+                        total_registros: dadosDisponiveis.length
+                    });
+                }
+            }
+            
             // Sair do modo edição
             _setModoEditarNovo(false);
             botao_ativo = '';
             
-            // Atualiza backup dos dados originais
-            dadosOriginaisRegistro = { ...dados_para_update };
-            
-            // ✨ SINCRONIZAÇÃO: Atualiza array de navegação com dados atualizados
-            if (dadosDisponiveis && dadosDisponiveis[reg_num]) {
-                dadosDisponiveis[reg_num] = { ...dados_para_update };
-                flow_marker('🔄 Array dadosDisponiveis sincronizado', { 
-                    reg_num, 
-                    dados_atualizados: dados_para_update 
-                });
+            // Atualiza backup dos dados originais com dados do array atualizado
+            if (dadosDisponiveis[reg_num]) {
+                dadosOriginaisRegistro = { ...dadosDisponiveis[reg_num] };
             }
             
             return {
@@ -480,11 +574,41 @@ async function incluir_registro_novo() {
         if (resultadoAPI.sucesso) {
             flow_marker('✅ Novo registro inserido com sucesso');
             
+            // 🔄 SINCRONIZAÇÃO SILENCIOSA: Atualiza dadosDisponiveis e localiza novo registro
+            if (resultadoAPI.dados_atualizados) {
+                // 1. Guarda array antigo para comparação
+                const arrayAntigo = [...dadosDisponiveis];
+                
+                // 2. Substitui array completo com dados atualizados do backend
+                dadosDisponiveis = resultadoAPI.dados_atualizados;
+                
+                // 3. Varre array novo procurando PK que não existe no antigo
+                let pkNovoRegistro = null;
+                for (let i = 0; i < dadosDisponiveis.length; i++) {
+                    const pkAtual = dadosDisponiveis[i].idgrupo;
+                    const existeNoArrayAntigo = arrayAntigo.some(item => item.idgrupo === pkAtual);
+                    
+                    if (!existeNoArrayAntigo) {
+                        // Encontrou! Esta é a PK do novo registro
+                        reg_num = i; // Posição já é base 0
+                        pkNovoRegistro = pkAtual;
+                        break; // Interrompe o laço
+                    }
+                }
+                
+                // 4. Log da sincronização (se encontrou)
+                if (pkNovoRegistro !== null) {
+                    flow_marker('🔄 Sincronização INSERT completa', { 
+                        pk_novo_registro: pkNovoRegistro,
+                        posicao_no_array: reg_num,
+                        total_registros: dadosDisponiveis.length
+                    });
+                }
+            }
+            
             // Sair do modo inclusão
             _setModoEditarNovo(false);
             botao_ativo = '';
-            
-            // TODO: Atualizar lista de dados disponíveis e navegar para o novo registro
             
             return {
                 sucesso: true,
@@ -759,6 +883,31 @@ function _capturarDadosAtuaisFormulario() {
     });
     
     return dados;
+}
+
+/**
+ * 🧹 LIMPA TODOS OS CAMPOS DO FORMULÁRIO
+ * Usado quando array fica vazio após DELETE
+ */
+function _limparFormulario() {
+    const formCrud = document.getElementById('formCrud');
+    if (!formCrud) {
+        console.warn('⚠️ formCrud não encontrado para limpeza');
+        return;
+    }
+    
+    const campos = formCrud.querySelectorAll('input, textarea, select');
+    
+    campos.forEach(campo => {
+        if (campo.type === 'checkbox') {
+            campo.checked = false;
+        } else {
+            campo.value = '';
+        }
+    });
+    
+    // Garante que campos ficam readonly (modo visualização)
+    _setModoEditarNovo(false);
 }
 
  //* ⚠️ BEEP: Indica que chegou ao limite de navegação
