@@ -78,7 +78,7 @@ async function exemploUsoAPIInvCtl() {
 ************************************************************
  
 1. ✅ UMA INSTÂNCIA POR APLICAÇÃO
-   - window.api_finctl para FinCtl
+   - window.api_info para FinCtl
    - window.api_invctl para InvCtl
    - window.api_cliente para outro sistema...
 
@@ -93,9 +93,9 @@ async function exemploUsoAPIInvCtl() {
    - Bancos de dados separados se necessário
 
 4. ✅ SINTAXE LIMPA E SEMÂNTICA
-   - api_finctl.tabela = "grupos"
-   - api_finctl.dados = {...}
-   - api_finctl.inserir()
+   - api_info.tabela = "grupos"
+   - api_info.dados = {...}
+   - api_info.inserir()
 
 5. ✅ REUTILIZAÇÃO TOTAL DO FRAMEWORK
    - Mesma classe api_fe para todas as aplicações

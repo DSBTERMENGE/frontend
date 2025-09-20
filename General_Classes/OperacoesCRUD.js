@@ -322,8 +322,8 @@ async function processarDeletar() {
 
         flow_marker('🗑️ processarDeletar() iniciado');
 
-        if (!window.api_finctl) {
-            throw new Error("API global não disponível (window.api_finctl)");
+        if (!window.api_info) {
+            throw new Error("API global não disponível (window.api_info)");
         }
 
         // Captura dados do registro atual para enviar como identificação
@@ -336,7 +336,7 @@ async function processarDeletar() {
         flow_marker('🗑️ Dados do registro para exclusão', registroParaDeletar);
 
         // Chama API para deletar no backend (quando implementada)
-        // const resultadoAPI = await window.api_finctl.deletar_registro(registroParaDeletar);
+        // const resultadoAPI = await window.api_info.deletar_registro(registroParaDeletar);
         
         // SIMULAÇÃO: Por enquanto simula sucesso até implementar endpoint DELETE
         const resultadoAPI = { sucesso: true, mensagem: "Registro deletado com sucesso" };
@@ -398,14 +398,15 @@ async function processarDeletar() {
  * @returns {Object} Resultado da operação
  */
 async function popularFormulario() {
+    console.log('🔄 Iniciando população do formulário...');
+    
     try {
-
         
-        if (!window.api_finctl) {
-            throw new Error("API global não disponível (window.api_finctl)");
+        if (!window.api_info) {
+            throw new Error("API global não disponível (window.api_info)");
         }
         
-        const resultadoAPI = await window.api_finctl.consulta_dados_form();
+        const resultadoAPI = await window.api_info.consulta_dados_form();
         
         if (resultadoAPI.mensagem === "sucesso") {
             const dadosRecebidos = resultadoAPI.dados.dados;
@@ -420,6 +421,8 @@ async function popularFormulario() {
                 if (typeof _popularSelectNavegacao === 'function') {
                     _popularSelectNavegacao("grupos", dadosRecebidos);
                 }
+                
+                console.log('✅ População concluída com sucesso - Formulário populado com dados');
                 
                 return {
                     sucesso: true,
@@ -439,6 +442,8 @@ async function popularFormulario() {
                 _limparFormulario();
                 
                 flow_marker('🎯 Modo inclusão automático ativado - tabela vazia');
+                
+                console.log('✅ População concluída - Modo inclusão ativado automaticamente (tabela vazia)');
                 
                 return {
                     sucesso: true,
@@ -469,8 +474,8 @@ async function atualizar_registro() {
   try {
         flow_marker('🔄 atualizar_registro() iniciado');
         
-        if (!window.api_finctl) {
-            throw new Error("API global não disponível (window.api_finctl)");
+        if (!window.api_info) {
+            throw new Error("API global não disponível (window.api_info)");
         }
         
         // Captura alterações do formulário (mantém semântica da função)
@@ -493,7 +498,7 @@ async function atualizar_registro() {
         flow_marker('📋 Dados capturados do formulário', dados_para_update);
         
         // Chama API para atualizar no backend
-        const resultadoAPI = await window.api_finctl.update_data(dados_para_update);
+        const resultadoAPI = await window.api_info.update_data(dados_para_update);
         
         if (resultadoAPI.sucesso) {
             flow_marker('✅ Registro atualizado com sucesso');
@@ -555,8 +560,8 @@ async function incluir_registro_novo() {
     try {
         flow_marker('➕ incluir_registro_novo() iniciado');
         
-        if (!window.api_finctl) {
-            throw new Error("API global não disponível (window.api_finctl)");
+        if (!window.api_info) {
+            throw new Error("API global não disponível (window.api_info)");
         }
         
         // Captura dados atuais do formulário
@@ -569,7 +574,7 @@ async function incluir_registro_novo() {
         flow_marker('📋 Dados capturados do formulário para inserção', dados_novo_registro);
         
         // Chama API para inserir no backend
-        const resultadoAPI = await window.api_finctl.incluir_reg_novo(dados_novo_registro);
+        const resultadoAPI = await window.api_info.incluir_reg_novo(dados_novo_registro);
         
         if (resultadoAPI.sucesso) {
             flow_marker('✅ Novo registro inserido com sucesso');
@@ -833,7 +838,7 @@ function valida_salvar() {
     }
 
     // Verifica campos obrigatórios
-    const camposObrigatorios = window.api_finctl.campos_obrigatorios || [];
+    const camposObrigatorios = window.api_info.campos_obrigatorios || [];
     const dadosAtuais = _capturarDadosAtuaisFormulario();
     const camposFaltando = [];
     
@@ -1006,9 +1011,319 @@ function AlertaEstadoDeEdicao_Inclusao() {
     alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
 }
 
+/* ============================================================
+                   SISTEMA DE POPULAÇÃO DE SELECTS
+===============================================================
+
+RESPONSABILIDADES TRANSFERIDAS DO ConstrutorDeForms.js:
+- Population de selects individuais e em grupo
+- Sistema de selects em cascata (Estado → Cidade → Bairro) 
+- Gestão de eventos entre selects interligadas
+- Limpeza e manutenção de selects
+
+ARQUITETURA:
+- Funciona com instâncias FormComum (this.objSelect)
+- Suporte a selects simples e em cascata
+- Eventos customizados para comunicação entre selects
+- Integração com backend para dados dinâmicos
+
+ÚLTIMA ATUALIZAÇÃO: Transferência completa do ConstrutorDeForms.js
+*/
+
+// ============= MÉTODOS DE POPULATION INDIVIDUAL =============
+
+/**
+ * 🔄 POPULAR SELECT ESPECÍFICA: Preenche uma select individual usando configuração
+ * 
+ * @param {FormComum} instanciaForm - Instância do formulário com objSelect
+ * @param {string} campo - Nome do campo da select
+ * @param {Object} configPopularSelects - Configuração com dados da select
+ * @param {boolean} manterPrimeiro - Se deve manter "Selecione..."
+ * @returns {boolean} Sucesso da operação
+ */
+async function popularSelectIndividual(instanciaForm, campo, configPopularSelects, manterPrimeiro = true) {
+    if (!instanciaForm || !instanciaForm.objSelect) {
+        console.warn('❌ Instância do formulário ou objSelect não disponível');
+        return false;
+    }
+    
+    try {
+        // Busca dados usando a configuração
+        const dados = await buscarDadosParaSelect(configPopularSelects);
+        
+        if (dados && dados.length > 0) {
+            return instanciaForm.objSelect.popularSelect(campo, dados, manterPrimeiro);
+        } else {
+            console.warn(`⚠️ Nenhum dado retornado para select '${campo}'`);
+            return false;
+        }
+    } catch (error) {
+        console.error(`❌ Erro ao popular select '${campo}':`, error);
+        return false;
+    }
+}
+
+/**
+ * 🔄 POPULAR TODAS AS SELECTS: Preenche múltiplas selects usando pool de configurações
+ * 
+ * @param {FormComum} instanciaForm - Instância do formulário
+ * @param {Object} poolConfigPopularSelects - Pool de configurações {campo: config}
+ * @param {boolean} manterPrimeiro - Se deve manter "Selecione..."
+ * @returns {Object} Relatório {sucesso: [], falha: []}
+ */
+async function popularTodasSelects(instanciaForm, poolConfigPopularSelects, manterPrimeiro = true) {
+    if (!instanciaForm || !instanciaForm.objSelect) {
+        console.warn('❌ Instância do formulário ou objSelect não disponível');
+        return { sucesso: [], falha: [] };
+    }
+    
+    const relatorio = { sucesso: [], falha: [] };
+    
+    // Itera sobre cada configuração do pool
+    for (const [campo, config] of Object.entries(poolConfigPopularSelects)) {
+        try {
+            const sucesso = await popularSelectIndividual(instanciaForm, campo, config, manterPrimeiro);
+            if (sucesso) {
+                relatorio.sucesso.push(campo);
+            } else {
+                relatorio.falha.push(campo);
+            }
+        } catch (error) {
+            console.error(`❌ Erro ao popular select '${campo}':`, error);
+            relatorio.falha.push(campo);
+        }
+    }
+    
+    return relatorio;
+}
+
+/**
+ * 🧹 LIMPAR SELECT: Remove todas as opções exceto "Selecione..."
+ * 
+ * @param {FormComum} instanciaForm - Instância do formulário
+ * @param {string} campo - Nome do campo da select
+ * @returns {boolean} Sucesso da operação
+ */
+function limparSelectIndividual(instanciaForm, campo) {
+    if (!instanciaForm || !instanciaForm.objSelect) {
+        console.warn('❌ Instância do formulário ou objSelect não disponível');
+        return false;
+    }
+    
+    return instanciaForm.objSelect.limparSelect(campo);
+}
+
+// ============= SISTEMA DE SELECTS EM CASCATA =============
+
+/**
+ * 🔗 CONFIGURAR CASCATA: Configura selects interligadas (Estado → Cidade → Bairro)
+ * 
+ * @param {FormComum} instanciaForm - Instância do formulário
+ * @param {Object} configCascata - Configuração das dependências
+ * @example
+ * configurarSelectsCascata(formEndereco, {
+ *   estado: { dependente: 'cidade', endpoint: '/api/cidades' },
+ *   cidade: { dependente: 'bairro', endpoint: '/api/bairros' }
+ * });
+ */
+function configurarSelectsCascata(instanciaForm, configCascata) {
+    if (!instanciaForm || !instanciaForm.objSelect) {
+        console.warn('❌ Instância do formulário não disponível para cascata');
+        return;
+    }
+    
+    // Registra listener para eventos de mudança
+    const container = instanciaForm.form.querySelector('.controles-container');
+    if (container) {
+        container.addEventListener('select-alterada', (event) => {
+            handlerSelectsCascata(event, configCascata, instanciaForm);
+        });
+        
+        console.log('✅ Sistema de cascata configurado para:', Object.keys(configCascata));
+    }
+}
+
+/**
+ * 🎯 HANDLER DE CASCATA: Processa mudanças em selects interligadas
+ * 
+ * @param {CustomEvent} event - Evento de alteração da select
+ * @param {Object} configCascata - Configuração das dependências
+ * @param {FormComum} instanciaForm - Instância do formulário
+ */
+async function handlerSelectsCascata(event, configCascata, instanciaForm) {
+    const { campo, valor, selecionados } = event.detail;
+    
+    console.log(`🔄 Processando cascata para: ${campo} = ${valor}`);
+    
+    // Verifica se este campo tem dependentes
+    if (configCascata[campo] && configCascata[campo].dependente) {
+        const campoDependente = configCascata[campo].dependente;
+        const endpoint = configCascata[campo].endpoint;
+        
+        try {
+            // Limpa select dependente
+            limparSelectIndividual(instanciaForm, campoDependente);
+            
+            if (valor) {
+                // Busca dados para o dependente
+                const dadosDependente = await buscarDadosSelect(endpoint, { [campo]: valor });
+                
+                if (dadosDependente && dadosDependente.length > 0) {
+                    popularSelectIndividual(instanciaForm, campoDependente, dadosDependente);
+                    console.log(`✅ Select '${campoDependente}' populada com ${dadosDependente.length} itens`);
+                }
+            }
+            
+            // Limpa selects dependentes do dependente (cascata completa)
+            limparDependentesRecursivo(campoDependente, configCascata, instanciaForm);
+            
+        } catch (error) {
+            console.error(`❌ Erro na cascata ${campo} → ${campoDependente}:`, error);
+        }
+    }
+}
+
+/**
+ * 🧹 LIMPAR DEPENDENTES RECURSIVO: Limpa toda a cadeia de dependências
+ */
+function limparDependentesRecursivo(campo, configCascata, instanciaForm) {
+    if (configCascata[campo] && configCascata[campo].dependente) {
+        const proximoDependente = configCascata[campo].dependente;
+        limparSelectIndividual(instanciaForm, proximoDependente);
+        
+        // Continua recursivamente
+        limparDependentesRecursivo(proximoDependente, configCascata, instanciaForm);
+    }
+}
+
+// ============= INTEGRAÇÃO COM BACKEND =============
+
+/**
+ * 📊 BUSCAR DADOS PARA SELECT: Faz requisição ao backend usando configuração
+ * 
+ * @param {Object} configPopularSelects - Configuração da select
+ * @param {string} configPopularSelects.view_name - Nome da view no backend
+ * @param {Array} configPopularSelects.colunasDeDados - Colunas a buscar
+ * @param {string} configPopularSelects.campo_exibir - Campo para texto da option
+ * @param {string} configPopularSelects.campo_value - Campo para value da option
+ * @returns {Promise<Array>} Array de {value, text}
+ */
+async function buscarDadosParaSelect(configPopularSelects) {
+    try {
+        const { view_name, colunasDeDados, campo_exibir, campo_value } = configPopularSelects;
+        
+        console.log(`📤 Buscando dados para select da view: ${view_name}`);
+        
+        if (!window.api_info) {
+            throw new Error("API global não disponível (window.api_info)");
+        }
+        
+        // Configura API para buscar dados específicos da select
+        const configOriginal = {
+            view: window.api_info.view,
+            campos: window.api_info.campos
+        };
+        
+        // Aplica configuração da select
+        window.api_info.view = view_name;
+        window.api_info.campos = colunasDeDados;
+        
+        const resultadoAPI = await window.api_info.consulta_dados_form();
+        
+        // Restaura configuração original
+        window.api_info.view = configOriginal.view;
+        window.api_info.campos = configOriginal.campos;
+        
+        if (resultadoAPI.mensagem === "sucesso") {
+            // Converte para formato {value, text}
+            const dadosFormatados = resultadoAPI.dados.dados.map(item => ({
+                value: item[campo_value],
+                text: item[campo_exibir]
+            }));
+            
+            console.log(`📥 Dados formatados para select:`, dadosFormatados);
+            return dadosFormatados;
+        } else {
+            throw new Error(resultadoAPI.mensagem || "Erro na consulta da view");
+        }
+        
+    } catch (error) {
+        console.error(`❌ Erro ao buscar dados para select:`, error);
+        return [];
+    }
+}
+
+// ============= MÉTODOS DE CONVENIÊNCIA =============
+
+/**
+ * 📋 OBTER VALORES DAS SELECTS: Extrai valores selecionados
+ * 
+ * @param {FormComum} instanciaForm - Instância do formulário
+ * @returns {Object} Mapeamento {campo: valor}
+ */
+function obterValoresSelects(instanciaForm) {
+    if (!instanciaForm || !instanciaForm.objSelect) {
+        console.warn('❌ Instância do formulário não disponível');
+        return {};
+    }
+    
+    return instanciaForm.objSelect.obterValores();
+}
+
+/**
+ * 🎯 OBTER ELEMENTO SELECT: Retorna elemento DOM da select
+ * 
+ * @param {FormComum} instanciaForm - Instância do formulário
+ * @param {string} campo - Nome do campo
+ * @returns {HTMLSelectElement|null} Elemento select
+ */
+function obterElementoSelect(instanciaForm, campo) {
+    if (!instanciaForm || !instanciaForm.objSelect) {
+        console.warn('❌ Instância do formulário não disponível');
+        return null;
+    }
+    
+    return instanciaForm.objSelect.obterElementoSelect(campo);
+}
+
+// ============= FUNÇÃO SIMPLES PARA RETROCOMPATIBILIDADE =============
+
+/**
+ * 🔄 POPULAR SELECT SIMPLES: Versão simplificada para casos básicos
+ * 
+ * @param {string} tipo - Tipo/ID da select
+ * @param {Array} dados - Array de dados {valor, texto}
+ */
+function popularSelect(tipo, dados) {
+    const select = document.getElementById(`select_${tipo}`);
+    if (!select) {
+        console.warn(`⚠️ Select não encontrado: select_${tipo}`);
+        return;
+    }
+
+    // Limpa opções existentes
+    select.innerHTML = '';
+
+    // Adiciona novas opções
+    dados.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.valor;
+        option.textContent = item.texto;
+        select.appendChild(option);
+    });
+}
 
 export {
-    popularFormulario  // Única função externa - para população inicial
+    popularFormulario,  // Única função externa - para população inicial
+    // Novos métodos de selects transferidos do ConstrutorDeForms.js
+    popularSelectIndividual,
+    popularTodasSelects,
+    limparSelectIndividual,
+    configurarSelectsCascata,
+    buscarDadosParaSelect,  // Nova função com configuração
+    obterValoresSelects,
+    obterElementoSelect,
+    popularSelect  // Retrocompatibilidade
 };
 
 

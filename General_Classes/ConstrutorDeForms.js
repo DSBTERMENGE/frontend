@@ -736,45 +736,38 @@ export class FormComum extends FormularioBase {
     // ============= MÉTODOS PÚBLICOS PARA SELECTS =============
     // Seguindo o padrão das tabelas
 
+    // ============= MÉTODOS DE SELECTS - REDIRECIONAMENTO =============
+    // NOTA: Métodos de população foram transferidos para OperacoesCRUD.js
+    // para melhor separação de responsabilidades.
+    
     /**
-     * Popula um select específico com dados
-     * @param {string} campo - Nome do campo do select
-     * @param {Array<Object>} dados - Array de {value, text}
-     * @param {boolean} manterPrimeiro - Se deve manter "Selecione..."
-     * @returns {boolean} Sucesso da operação
+     * 🔄 POPULAR SELECT: Método redirecionado para OperacoesCRUD.js
+     * @deprecated Use popularSelectIndividual() de OperacoesCRUD.js
      */
     popularSelect(campo, dados, manterPrimeiro = true) {
-        if (this.objSelect) {
-            return this.objSelect.popularSelect(campo, dados, manterPrimeiro);
-        }
-        console.warn('❌ Selects não configuradas neste formulário');
+        console.warn('⚠️ popularSelect() foi movido para OperacoesCRUD.js');
+        console.warn('💡 Use: import { popularSelectIndividual } from "OperacoesCRUD.js"');
+        console.warn('💡 Chamada: popularSelectIndividual(instanciaForm, campo, dados)');
         return false;
     }
 
     /**
-     * Popula todos os selects de uma vez
-     * @param {Object} todosDados - {campo: [{value, text}]}
-     * @param {boolean} manterPrimeiro - Se deve manter "Selecione..."
-     * @returns {Object} Relatório {sucesso: [], falha: []}
+     * 🔄 POPULAR TODOS OS SELECTS: Método redirecionado para OperacoesCRUD.js
+     * @deprecated Use popularTodasSelects() de OperacoesCRUD.js
      */
     popularTodosSelects(todosDados, manterPrimeiro = true) {
-        if (this.objSelect) {
-            return this.objSelect.popularTodosSelects(todosDados, manterPrimeiro);
-        }
-        console.warn('❌ Selects não configuradas neste formulário');
+        console.warn('⚠️ popularTodosSelects() foi movido para OperacoesCRUD.js');
+        console.warn('💡 Use: import { popularTodasSelects } from "OperacoesCRUD.js"');
         return { sucesso: [], falha: [] };
     }
 
     /**
-     * Limpa um select específico
-     * @param {string} campo - Nome do campo do select
-     * @returns {boolean} Sucesso da operação
+     * 🧹 LIMPAR SELECT: Método redirecionado para OperacoesCRUD.js
+     * @deprecated Use limparSelectIndividual() de OperacoesCRUD.js
      */
     limparSelect(campo) {
-        if (this.objSelect) {
-            return this.objSelect.limparSelect(campo);
-        }
-        console.warn('❌ Selects não configuradas neste formulário');
+        console.warn('⚠️ limparSelect() foi movido para OperacoesCRUD.js');
+        console.warn('💡 Use: import { limparSelectIndividual } from "OperacoesCRUD.js"');
         return false;
     }
 
@@ -858,14 +851,9 @@ export class FormComum extends FormularioBase {
      * ]);
      * 
      * @since 2.0.0
+     * @deprecated Método movido para OperacoesCRUD.js
      */
-    popularSelect(campo, opcoes) {
-        if (this.objSelect) {
-            this.objSelect.popularSelect(campo, opcoes);
-        } else {
-            console.warn('❌ FormComum.popularSelect(): Selects não configuradas neste formulário');
-        }
-    }
+    // REMOVIDO: popularSelect() - Ver OperacoesCRUD.js
 
     // ============= MÉTODOS DE DADOS =============
 
