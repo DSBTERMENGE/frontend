@@ -6,7 +6,6 @@
 
 export class CriarSelects {
     /**
-     * Construtor da classe CriarSelects
      * 
      * @param {Array<string>} labels - Array com os nomes dos labels que aparecerão antes de cada select
      *                                  Exemplo: ['Categoria', 'Subcategoria', 'Produto']

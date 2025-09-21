@@ -231,6 +231,20 @@ export default class api_fe {
          */
         this.dados_form_out = {};
         
+        /**
+         * Chave primária da tabela (opcional - fallback: descoberta automática)
+         * @type {string}
+         * @example "idgrupo", "idsubgrupo"
+         */
+        this.pk = "";
+        
+        /**
+         * Array com nomes dos campos relacionados para capturar IDs de selects
+         * @type {Array<string>}
+         * @example [], ["idgrupo"], ["idcategoria", "idsubcategoria"]
+         */
+        this.campos_relacionados = [];
+        
         console.log(`✅ api_fe inicializada para aplicação '${app_name}' apontando para ${backend_url}`);
     }
     

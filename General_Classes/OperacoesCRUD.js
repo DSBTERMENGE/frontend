@@ -63,10 +63,6 @@ let listenerConfigurado = false;  // Evita múltiplos listeners
 let contadorExecucoes = 0;   // Debug: contador de execuções
 let dadosOriginaisRegistro = {}; // Backup dos dados originais do registro atual
 
-//************************************************************
-//                    FUNÇÕES AUXILIARES
-//************************************************************
-
 
 //************************************************************
 //                      LISTENERS
@@ -430,25 +426,33 @@ async function popularFormulario() {
                     mensagem: `Formulário populado com ${dadosRecebidos.length} registros`
                 };
             } else {
-                // 🎯 CENÁRIO 1: Sem dados na abertura → Auto modo inclusão
-                console.warn("⚠️ Nenhum dado retornado da API - ativando modo inclusão automático");
+                // 🎯 CENÁRIO 1: Sem dados na abertura → Usar registro vazio normalizado
+                console.warn("⚠️ Nenhum dado retornado da API - criando registro vazio normalizado");
                 
-                dadosDisponiveis = [];
-                reg_num = -1;
+                // Cria registro vazio com todos os campos como strings vazias
+                const registroVazio = criarRegistroVazio();
+                dadosDisponiveis = [registroVazio];  // Array com 1 registro vazio
+                reg_num = 0;  // Aponta para o registro vazio (base 0)
+                
+                // Popula formulário com campos vazios
+                _popularFormularioAutomatico(registroVazio);
                 
                 // Ativa modo inclusão automático
                 botao_ativo = 'incluir';
                 _setModoEditarNovo(true);
-                _limparFormulario();
                 
-                flow_marker('🎯 Modo inclusão automático ativado - tabela vazia');
+                flow_marker('🎯 Modo inclusão automático ativado - usando registro vazio normalizado', {
+                    total_registros: dadosDisponiveis.length,
+                    reg_num: reg_num,
+                    campos_no_registro: Object.keys(registroVazio)
+                });
                 
-                console.log('✅ População concluída - Modo inclusão ativado automaticamente (tabela vazia)');
+                console.log('✅ População concluída - Modo inclusão ativado com registro vazio normalizado');
                 
                 return {
                     sucesso: true,
-                    dados: [],
-                    mensagem: "Tabela vazia - modo inclusão ativado automaticamente"
+                    dados: dadosDisponiveis,
+                    mensagem: "Tabela vazia - modo inclusão ativado com registro normalizado"
                 };
             }
         } else {
@@ -631,9 +635,6 @@ async function incluir_registro_novo() {
         };
     }
 }
-
-
-
 
 
 //************************************************************
@@ -1011,6 +1012,48 @@ function AlertaEstadoDeEdicao_Inclusao() {
     alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
 }
 
+/**
+ * 🏗️ CRIAR REGISTRO VAZIO: Cria objeto com campos vazios para normalização de dados
+ * 
+ * Solução para quando backend retorna dados vazios - em vez de array vazio,
+ * criamos array com 1 objeto contendo todos os campos como strings vazias.
+ * Isso mantém a consistência do sistema que espera sempre um array de objetos.
+ * 
+ * @returns {Object} Objeto com todos os campos definidos como strings vazias
+ */
+function criarRegistroVazio() {
+    console.log('🏗️ Criando registro vazio para normalização de dados...');
+    
+    const registroVazio = {};
+    
+    if (!window.api_info) {
+        console.warn('⚠️ window.api_info não disponível - criando registro vazio simples');
+        return {};
+    }
+    
+    // 1. Campos principais do formulário (de window.api_info.campos)
+    if (window.api_info.campos && Array.isArray(window.api_info.campos)) {
+        window.api_info.campos.forEach(campo => {
+            registroVazio[campo] = "";
+        });
+        console.log(`✅ Campos principais adicionados: ${window.api_info.campos.join(', ')}`);
+    }
+    
+    // 2. Campos relacionados (de window.api_info.campos_relacionados)
+    if (window.api_info.campos_relacionados && Array.isArray(window.api_info.campos_relacionados)) {
+        window.api_info.campos_relacionados.forEach(campo => {
+            registroVazio[campo] = "";
+        });
+        console.log(`✅ Campos relacionados adicionados: ${window.api_info.campos_relacionados.join(', ')}`);
+    }
+    
+    // 3. NÃO incluímos a chave primária (window.api_info.pk) 
+    // porque só vamos fazer inclusão mesmo - PK será gerada pelo backend
+    
+    console.log('🏗️ Registro vazio criado:', registroVazio);
+    return registroVazio;
+}
+
 /* ============================================================
                    SISTEMA DE POPULAÇÃO DE SELECTS
 ===============================================================
@@ -1286,7 +1329,7 @@ function obterElementoSelect(instanciaForm, campo) {
     return instanciaForm.objSelect.obterElementoSelect(campo);
 }
 
-// ============= FUNÇÃO SIMPLES PARA RETROCOMPATIBILIDADE =============
+// =====MERDA DE IA ======== FUNÇÃO SIMPLES PARA RETROCOMPATIBILIDADE =============
 
 /**
  * 🔄 POPULAR SELECT SIMPLES: Versão simplificada para casos básicos
@@ -1313,6 +1356,51 @@ function popularSelect(tipo, dados) {
     });
 }
 
+/**
+ * 🔗 CAPTURA CAMPOS RELACIONADOS: Captura valores de selects para campos relacionados
+ * 
+ * Função auxiliar que localiza selects correspondentes aos campos relacionados
+ * definidos em window.api_info.campos_relacionados e captura seus valores (IDs)
+ * para adicionar ao array de dados do registro.
+ * 
+ * @returns {Object} Objeto com os campos relacionados e seus valores
+ * @example
+ * // Se campos_relacionados = ['idgrupo'] e select grupo tem value = 2
+ * // Retorna: {idgrupo: 2}
+ */
+function capturaCamposRelacionados() {
+    console.log('🔗 Iniciando captura de campos relacionados...');
+    
+    const camposCapturados = {};
+    
+    // Só executa se houver campos relacionados configurados
+    if (!window.api_info.campos_relacionados || window.api_info.campos_relacionados.length === 0) {
+        console.log('📝 Nenhum campo relacionado configurado - retornando objeto vazio');
+        return camposCapturados;
+    }
+    
+    // Itera pelos campos relacionados configurados
+    window.api_info.campos_relacionados.forEach(nomeCampo => {
+        console.log(`🔍 Procurando select para campo relacionado: ${nomeCampo}`);
+        
+        // Tenta localizar a select correspondente (por name ou id)
+        let selectElement = document.querySelector(`select[name="${nomeCampo}"]`) || 
+                           document.querySelector(`select[id="${nomeCampo}"]`) ||
+                           document.querySelector(`select[name="${nomeCampo.replace('id', '')}"]`) ||
+                           document.querySelector(`select[id="${nomeCampo.replace('id', '')}"]`);
+        
+        if (selectElement && selectElement.value) {
+            camposCapturados[nomeCampo] = selectElement.value;
+            console.log(`✅ Campo relacionado capturado: ${nomeCampo} = ${selectElement.value}`);
+        } else {
+            console.warn(`⚠️ Select não encontrada ou sem valor para campo relacionado: ${nomeCampo}`);
+        }
+    });
+    
+    console.log('🔗 Campos relacionados capturados:', camposCapturados);
+    return camposCapturados;
+}
+
 export {
     popularFormulario,  // Única função externa - para população inicial
     // Novos métodos de selects transferidos do ConstrutorDeForms.js
@@ -1323,7 +1411,8 @@ export {
     buscarDadosParaSelect,  // Nova função com configuração
     obterValoresSelects,
     obterElementoSelect,
-    popularSelect  // Retrocompatibilidade
+    popularSelect,  // Retrocompatibilidade
+    capturaCamposRelacionados  // Nova função para campos relacionados
 };
 
 
