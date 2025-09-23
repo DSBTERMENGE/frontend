@@ -407,53 +407,52 @@ async function popularFormulario() {
         if (resultadoAPI.mensagem === "sucesso") {
             const dadosRecebidos = resultadoAPI.dados.dados;
             if (dadosRecebidos && dadosRecebidos.length > 0) {
-                dadosDisponiveis = dadosRecebidos || [];
-                reg_num = 0; 
+                
+                // Verifica se é registro vazio (backend normalizado)
+                const primeiroRegistro = dadosRecebidos[0];
+                const isRegistroVazio = Object.values(primeiroRegistro).every(valor => valor === "");
+                
+                if (isRegistroVazio) {
+                    // 🎯 CENÁRIO: Backend retornou registro vazio normalizado
+                    console.warn("⚠️ Backend retornou registro vazio - ativando modo inclusão automático");
+                    
+                    dadosDisponiveis = dadosRecebidos; // Mantém o registro vazio para consistência
+                    reg_num = 0;
+                    
+                    // Popula formulário com campos vazios
+                    _popularFormularioAutomatico(primeiroRegistro);
+                    
+                    // Ativa modo inclusão automático
+                    botao_ativo = 'incluir';
+                    _setModoEditarNovo(true);
+                    
+                    flow_marker('🎯 Modo inclusão automático ativado - registro vazio do backend');
+                    
+                    return {
+                        sucesso: true,
+                        dados: dadosRecebidos,
+                        mensagem: "Registro vazio - modo inclusão ativado automaticamente"
+                    };
+                } else {
+                    // 🎯 CENÁRIO: Dados reais do backend
+                    dadosDisponiveis = dadosRecebidos || [];
+                    reg_num = 0;
 
-                
-                _popularFormularioAutomatico(dadosRecebidos[0]);
-                
-                // Popula select de navegação se existir função
-                if (typeof _popularSelectNavegacao === 'function') {
-                    _popularSelectNavegacao("grupos", dadosRecebidos);
+                    _popularFormularioAutomatico(dadosRecebidos[0]);
+                    
+                    // Popula select de navegação se existir função
+                    if (typeof _popularSelectNavegacao === 'function') {
+                        _popularSelectNavegacao("grupos", dadosRecebidos);
+                    }
+                    
+                    console.log('✅ População concluída com sucesso - Formulário populado com dados');
+                    
+                    return {
+                        sucesso: true,
+                        dados: dadosRecebidos,
+                        mensagem: `Formulário populado com ${dadosRecebidos.length} registros`
+                    };
                 }
-                
-                console.log('✅ População concluída com sucesso - Formulário populado com dados');
-                
-                return {
-                    sucesso: true,
-                    dados: dadosRecebidos,
-                    mensagem: `Formulário populado com ${dadosRecebidos.length} registros`
-                };
-            } else {
-                // 🎯 CENÁRIO 1: Sem dados na abertura → Usar registro vazio normalizado
-                console.warn("⚠️ Nenhum dado retornado da API - criando registro vazio normalizado");
-                
-                // Cria registro vazio com todos os campos como strings vazias
-                const registroVazio = criarRegistroVazio();
-                dadosDisponiveis = [registroVazio];  // Array com 1 registro vazio
-                reg_num = 0;  // Aponta para o registro vazio (base 0)
-                
-                // Popula formulário com campos vazios
-                _popularFormularioAutomatico(registroVazio);
-                
-                // Ativa modo inclusão automático
-                botao_ativo = 'incluir';
-                _setModoEditarNovo(true);
-                
-                flow_marker('🎯 Modo inclusão automático ativado - usando registro vazio normalizado', {
-                    total_registros: dadosDisponiveis.length,
-                    reg_num: reg_num,
-                    campos_no_registro: Object.keys(registroVazio)
-                });
-                
-                console.log('✅ População concluída - Modo inclusão ativado com registro vazio normalizado');
-                
-                return {
-                    sucesso: true,
-                    dados: dadosDisponiveis,
-                    mensagem: "Tabela vazia - modo inclusão ativado com registro normalizado"
-                };
             }
         } else {
             throw new Error(`Erro na API: ${resultadoAPI.mensagem}`);
@@ -1012,48 +1011,6 @@ function AlertaEstadoDeEdicao_Inclusao() {
     alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
 }
 
-/**
- * 🏗️ CRIAR REGISTRO VAZIO: Cria objeto com campos vazios para normalização de dados
- * 
- * Solução para quando backend retorna dados vazios - em vez de array vazio,
- * criamos array com 1 objeto contendo todos os campos como strings vazias.
- * Isso mantém a consistência do sistema que espera sempre um array de objetos.
- * 
- * @returns {Object} Objeto com todos os campos definidos como strings vazias
- */
-function criarRegistroVazio() {
-    console.log('🏗️ Criando registro vazio para normalização de dados...');
-    
-    const registroVazio = {};
-    
-    if (!window.api_info) {
-        console.warn('⚠️ window.api_info não disponível - criando registro vazio simples');
-        return {};
-    }
-    
-    // 1. Campos principais do formulário (de window.api_info.campos)
-    if (window.api_info.campos && Array.isArray(window.api_info.campos)) {
-        window.api_info.campos.forEach(campo => {
-            registroVazio[campo] = "";
-        });
-        console.log(`✅ Campos principais adicionados: ${window.api_info.campos.join(', ')}`);
-    }
-    
-    // 2. Campos relacionados (de window.api_info.campos_relacionados)
-    if (window.api_info.campos_relacionados && Array.isArray(window.api_info.campos_relacionados)) {
-        window.api_info.campos_relacionados.forEach(campo => {
-            registroVazio[campo] = "";
-        });
-        console.log(`✅ Campos relacionados adicionados: ${window.api_info.campos_relacionados.join(', ')}`);
-    }
-    
-    // 3. NÃO incluímos a chave primária (window.api_info.pk) 
-    // porque só vamos fazer inclusão mesmo - PK será gerada pelo backend
-    
-    console.log('🏗️ Registro vazio criado:', registroVazio);
-    return registroVazio;
-}
-
 /* ============================================================
                    SISTEMA DE POPULAÇÃO DE SELECTS
 ===============================================================
@@ -1329,7 +1286,165 @@ function obterElementoSelect(instanciaForm, campo) {
     return instanciaForm.objSelect.obterElementoSelect(campo);
 }
 
-// =====MERDA DE IA ======== FUNÇÃO SIMPLES PARA RETROCOMPATIBILIDADE =============
+// ============= SISTEMA DE FILTROS COM SELECTS =============
+
+/**
+ * 🎯 PROCESSAR FILTRO SELECT: Função genérica para filtros baseados em selects
+ * 
+ * Esta função implementa o padrão de filtros do framework onde mudanças em selects
+ * de filtro (ex: grupo) disparam consultas filtradas para popular outras selects
+ * (ex: subgrupos) e automaticamente atualizam o formulário.
+ * 
+ * @param {Object} config - Configuração do filtro
+ * @param {string} config.selectOrigem - Nome da select que disparou o evento (ex: 'grupo')
+ * @param {string} config.selectDestino - Nome da select a ser populada (ex: 'subgrupo')
+ * @param {string} config.nomeFiltro - Nome do filtro para a API (ex: 'idgrupo')
+ * @param {string} config.valor - Valor selecionado na select origem
+ * @param {Object} config.instanciaForm - Instância do formulário (opcional)
+ * @returns {Promise<boolean>} Sucesso da operação
+ * 
+ * @example
+ * // Uso no event listener 'select-alterada'
+ * document.addEventListener('select-alterada', async (event) => {
+ *   const { campo, valor } = event.detail;
+ *   
+ *   if (campo === 'grupo') {
+ *     await processarFiltroSelect({
+ *       selectOrigem: 'grupo',
+ *       selectDestino: 'subgrupo', 
+ *       nomeFiltro: 'idgrupo',
+ *       valor: valor
+ *     });
+ *   }
+ * });
+ */
+async function processarFiltroSelect(config) {
+    try {
+        console.log(`🎯 Iniciando processamento de filtro select:`, config);
+        
+        const { selectOrigem, selectDestino, nomeFiltro, valor, instanciaForm } = config;
+        
+        if (!selectOrigem || !selectDestino || !nomeFiltro) {
+            throw new Error('Configuração inválida: selectOrigem, selectDestino e nomeFiltro são obrigatórios');
+        }
+        
+        // 1. LIMPEZA: Limpa select de destino
+        const selectDestinoElement = document.querySelector(`select[name="${selectDestino}"]`);
+        if (selectDestinoElement) {
+            selectDestinoElement.innerHTML = '<option value="">Selecione...</option>';
+            console.log(`🧹 Select '${selectDestino}' limpa`);
+        }
+        
+        // 2. FILTRO: Se há valor, busca dados filtrados
+        if (valor && valor !== '') {
+            // Verifica se API está disponível
+            if (!window.api_info) {
+                throw new Error("API global não disponível (window.api_info)");
+            }
+            
+            // Monta objeto de filtros para a API
+            const filtros = { [nomeFiltro]: valor };
+            console.log(`📤 Consultando dados com filtros:`, filtros);
+            
+            // Faz consulta filtrada à API
+            const resultadoAPI = await window.api_info.consulta_dados_form(filtros);
+            
+            if (resultadoAPI.mensagem === "sucesso" && resultadoAPI.dados.dados.length > 0) {
+                const dados = resultadoAPI.dados.dados;
+                
+                // Verifica se são dados reais ou registro vazio
+                const primeiroRegistro = dados[0];
+                const isRegistroVazio = Object.values(primeiroRegistro).every(valor => valor === "");
+                
+                if (!isRegistroVazio) {
+                    // 3. POPULAÇÃO: Popula select de destino
+                    await popularSelectComDados(selectDestino, dados);
+                    
+                    // 4. SELEÇÃO AUTOMÁTICA: Seleciona primeiro item automaticamente
+                    if (selectDestinoElement && selectDestinoElement.children.length > 1) {
+                        const primeiraOpcao = selectDestinoElement.children[1]; // Pula "Selecione..."
+                        selectDestinoElement.value = primeiraOpcao.value;
+                        
+                        console.log(`✅ Primeira opção selecionada automaticamente: ${primeiraOpcao.value}`);
+                        
+                        // 5. EVENTO: Dispara evento para atualizar formulário
+                        const eventoAlteracao = new CustomEvent('select-alterada', {
+                            detail: {
+                                campo: selectDestino,
+                                valor: primeiraOpcao.value,
+                                elemento: selectDestinoElement
+                            }
+                        });
+                        selectDestinoElement.dispatchEvent(eventoAlteracao);
+                        
+                        // 6. POPULAÇÃO DO FORMULÁRIO: Atualiza formulário com primeiro registro
+                        _popularFormularioAutomatico(dados[0]);
+                    }
+                    
+                    console.log(`✅ Filtro processado com sucesso - ${dados.length} registros encontrados`);
+                    return true;
+                } else {
+                    console.log(`⚠️ Nenhum registro encontrado para o filtro ${nomeFiltro} = ${valor}`);
+                }
+            } else {
+                console.log(`⚠️ Nenhum dado retornado da API para filtro ${nomeFiltro} = ${valor}`);
+            }
+        } else {
+            console.log(`⚠️ Valor vazio para filtro - select '${selectDestino}' mantida limpa`);
+        }
+        
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Erro ao processar filtro select:`, error);
+        return false;
+    }
+}
+
+/**
+ * 📋 POPULAR SELECT COM DADOS: Popula select com array de dados
+ * 
+ * @param {string} nomeSelect - Nome da select a popular
+ * @param {Array} dados - Array de dados do backend
+ * @returns {Promise<boolean>} Sucesso da operação
+ */
+async function popularSelectComDados(nomeSelect, dados) {
+    try {
+        const selectElement = document.querySelector(`select[name="${nomeSelect}"]`);
+        if (!selectElement) {
+            console.warn(`⚠️ Select não encontrada: ${nomeSelect}`);
+            return false;
+        }
+        
+        // Mantém opção "Selecione..."
+        selectElement.innerHTML = '<option value="">Selecione...</option>';
+        
+        // Determina automaticamente as colunas para value e text
+        const primeiroRegistro = dados[0];
+        const colunas = Object.keys(primeiroRegistro);
+        
+        // Convenção: primeira coluna = value (geralmente ID), segunda = text (nome/descrição)
+        const colunaValue = colunas[0];
+        const colunaText = colunas.length > 1 ? colunas[1] : colunas[0];
+        
+        // Adiciona opções
+        dados.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item[colunaValue];
+            option.textContent = item[colunaText];
+            selectElement.appendChild(option);
+        });
+        
+        console.log(`✅ Select '${nomeSelect}' populada com ${dados.length} opções`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Erro ao popular select '${nomeSelect}':`, error);
+        return false;
+    }
+}
+
+// ============= FUNÇÃO SIMPLES PARA RETROCOMPATIBILIDADE =============
 
 /**
  * 🔄 POPULAR SELECT SIMPLES: Versão simplificada para casos básicos
@@ -1412,7 +1527,10 @@ export {
     obterValoresSelects,
     obterElementoSelect,
     popularSelect,  // Retrocompatibilidade
-    capturaCamposRelacionados  // Nova função para campos relacionados
+    capturaCamposRelacionados,  // Nova função para campos relacionados
+    // Novas funções para sistema de filtros genérico
+    processarFiltroSelect,
+    popularSelectComDados
 };
 
 

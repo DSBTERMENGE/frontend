@@ -185,6 +185,15 @@ export default class api_fe {
         this.view = '';
         
         /**
+         * Nome da view específica para popular selects de filtro
+         * @type {string}
+         * @example "grupos_view", "estados_view" 
+         * @usage Usado para consultas específicas de dados que vão popular selects de filtro
+         * @description View otimizada para retornar apenas os dados necessários para options das selects
+         */
+        this.view_Select = '';
+        
+        /**
          * Nome da tabela para operações CRUD (OPERAÇÕES DE ESCRITA)
          * @type {string}
          * @example "tb_grupos", "tb_lancamentos"
