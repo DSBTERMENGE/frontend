@@ -1116,7 +1116,67 @@ function limparSelectIndividual(instanciaForm, campo) {
 // ============= SISTEMA DE SELECTS EM CASCATA =============
 
 /**
- * 🔗 CONFIGURAR CASCATA: Configura selects interligadas (Estado → Cidade → Bairro)
+ * � CONSTRUIR FILTRO INICIAL: Cria string de filtro baseada em configSelects
+ * @param {Object} configSelects - Configuração das selects do formulário
+ * @returns {string} String de filtro "campo1=*, campo2=*, ..."
+ * @example
+ * // Para configSelects.campos = ['grupo', 'subgrupo']
+ * // Retorna: "grupo=*" (subgrupo é select de pesquisa)
+ */
+function construirFiltroInicial(configSelects) {
+    try {
+        if (!configSelects || !configSelects.campos || !Array.isArray(configSelects.campos)) {
+            console.warn('⚠️ configSelects inválida ou sem campos');
+            return "";
+        }
+        
+        const campos = configSelects.campos;
+        const filtros = [];
+        
+        // Todos os campos exceto o último (que é select de pesquisa)
+        for (let i = 0; i < campos.length - 1; i++) {
+            filtros.push(`${campos[i]}=*`);
+        }
+        
+        const filtroInicial = filtros.join(', ');
+        console.log(`🔧 Filtro inicial construído: "${filtroInicial}"`);
+        return filtroInicial;
+        
+    } catch (error) {
+        console.error('❌ Erro ao construir filtro inicial:', error);
+        return "";
+    }
+}
+
+
+
+/**
+ * 🔄 RESETAR CAMPOS POSTERIORES: Limpa campos após o campo alterado
+ * @param {string} campoAlterado - Campo que foi modificado
+ * @param {Object} filtros - Objeto de filtros para modificar
+ * @param {Array} ordenCampos - Array com ordem dos campos
+ */
+function resetarCamposPosteriores(campoAlterado, filtros, ordenCampos) {
+    if (!ordenCampos || !Array.isArray(ordenCampos)) {
+        return;
+    }
+    
+    const indiceAlterado = ordenCampos.indexOf(campoAlterado);
+    
+    if (indiceAlterado === -1) {
+        return; // Campo não encontrado
+    }
+    
+    // Reset todos os campos posteriores (exceto o último que é pesquisa)
+    for (let i = indiceAlterado + 1; i < ordenCampos.length - 1; i++) {
+        const campo = ordenCampos[i];
+        filtros[campo] = "*";
+        console.log(`🔄 Campo '${campo}' resetado para '*' (cascata)`);
+    }
+}
+
+/**
+ * �🔗 CONFIGURAR CASCATA: Configura selects interligadas (Estado → Cidade → Bairro)
  * 
  * @param {FormComum} instanciaForm - Instância do formulário
  * @param {Object} configCascata - Configuração das dependências
@@ -1530,7 +1590,10 @@ export {
     capturaCamposRelacionados,  // Nova função para campos relacionados
     // Novas funções para sistema de filtros genérico
     processarFiltroSelect,
-    popularSelectComDados
+    popularSelectComDados,
+    // Sistema de filtros inteligente (nova implementação)
+    construirFiltroInicial,
+    resetarCamposPosteriores
 };
 
 

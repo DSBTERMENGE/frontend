@@ -254,6 +254,14 @@ export default class api_fe {
          */
         this.campos_relacionados = [];
         
+        /**
+         * String de filtros para sistema de selects em cascata
+         * @type {string}
+         * @example "var1 = *, var2 = *, var3 = RJ", "idgrupo = 5, idcategoria = *"
+         * @description Controla filtros aplicados nas consultas de selects de filtro
+         */
+        this.filtros = "";
+        
         console.log(`✅ api_fe inicializada para aplicação '${app_name}' apontando para ${backend_url}`);
     }
     
@@ -264,21 +272,22 @@ export default class api_fe {
     /**
      * Método genérico para buscar dados do backend para população de formulários
      * 
+     * @param {string} the_view - View específica a ser consultada
      * @returns {Promise<Object>} Dados recebidos do backend ou dicionário vazio
      */
-    async consulta_dados_form() {
+    async consulta_dados_form(the_view) {
         try {
             flow_marker('📋 consulta_dados_form() iniciado');
             
             // Validação básica
-            if (!this.view) {
+            if (!the_view) {
                 error_catcher('❌ Erro no consulta_dados_form():', error);
             }
             
             // Faz requisição direta para o endpoint /consultar_dados_db
             const url = `${this.backend_url}/consultar_dados_db`;
             const payload = {
-                view: this.view,
+                view: the_view,
                 campos: this.campos || ["Todos"],
                 database_path: this.database_path || "",
                 database_name: this.database_name || "",
