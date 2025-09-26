@@ -1042,6 +1042,10 @@ ARQUITETURA:
  * @returns {boolean} Sucesso da operação
  */
 async function popularSelectIndividual(instanciaForm, campo, configPopularSelects, manterPrimeiro = true) {
+    console.warn('⚠️ FUNÇÃO OBSOLETA: popularSelectIndividual() ainda está sendo usada');
+    console.warn('💡 Migre para FuncAguardandoNome() - nova implementação');
+    console.trace('📍 Chamada detectada em:');
+    
     if (!instanciaForm || !instanciaForm.objSelect) {
         console.warn('❌ Instância do formulário ou objSelect não disponível');
         return false;
@@ -1072,6 +1076,10 @@ async function popularSelectIndividual(instanciaForm, campo, configPopularSelect
  * @returns {Object} Relatório {sucesso: [], falha: []}
  */
 async function popularTodasSelects(instanciaForm, poolConfigPopularSelects, manterPrimeiro = true) {
+    console.warn('⚠️ FUNÇÃO OBSOLETA: popularTodasSelects() ainda está sendo usada');
+    console.warn('💡 Migre para FuncAguardandoNome() - nova implementação');
+    console.trace('📍 Chamada detectada em:');
+    
     if (!instanciaForm || !instanciaForm.objSelect) {
         console.warn('❌ Instância do formulário ou objSelect não disponível');
         return { sucesso: [], falha: [] };
@@ -1269,6 +1277,10 @@ function limparDependentesRecursivo(campo, configCascata, instanciaForm) {
  * @returns {Promise<Array>} Array de {value, text}
  */
 async function buscarDadosParaSelect(configPopularSelects) {
+    console.warn('⚠️ FUNÇÃO OBSOLETA: buscarDadosParaSelect() ainda está sendo usada');
+    console.warn('💡 Migre para FuncAguardandoNome() - nova implementação');
+    console.trace('📍 Chamada detectada em:');
+    
     try {
         const { view_name, colunasDeDados, campo_exibir, campo_value } = configPopularSelects;
         
@@ -1470,7 +1482,9 @@ async function processarFiltroSelect(config) {
  */
 async function popularSelectComDados(nomeSelect, dados) {
     try {
-        const selectElement = document.querySelector(`select[name="${nomeSelect}"]`);
+        // Busca select criado pelo ConstrutorDeSelects (padrão: id="select_" + campo)
+        // Acrescenta "select_" ao nome do campo para localizar o select desejado
+        const selectElement = document.getElementById(`select_${nomeSelect}`);
         if (!selectElement) {
             console.warn(`⚠️ Select não encontrada: ${nomeSelect}`);
             return false;
@@ -1506,74 +1520,57 @@ async function popularSelectComDados(nomeSelect, dados) {
 
 // ============= FUNÇÃO SIMPLES PARA RETROCOMPATIBILIDADE =============
 
-/**
- * 🔄 POPULAR SELECT SIMPLES: Versão simplificada para casos básicos
- * 
- * @param {string} tipo - Tipo/ID da select
- * @param {Array} dados - Array de dados {valor, texto}
- */
-function popularSelect(tipo, dados) {
-    const select = document.getElementById(`select_${tipo}`);
-    if (!select) {
-        console.warn(`⚠️ Select não encontrado: select_${tipo}`);
-        return;
-    }
 
-    // Limpa opções existentes
-    select.innerHTML = '';
-
-    // Adiciona novas opções
-    dados.forEach(item => {
-        const option = document.createElement('option');
-        option.value = item.valor;
-        option.textContent = item.texto;
-        select.appendChild(option);
-    });
-}
+// ============= FUNÇÃO TEMPORÁRIA - AGUARDANDO NOME DEFINITIVO =============
 
 /**
- * 🔗 CAPTURA CAMPOS RELACIONADOS: Captura valores de selects para campos relacionados
+ * 🚧 FUNÇÃO AGUARDANDO NOME: Popular primeira select com dados diretos
  * 
- * Função auxiliar que localiza selects correspondentes aos campos relacionados
- * definidos em window.api_info.campos_relacionados e captura seus valores (IDs)
- * para adicionar ao array de dados do registro.
+ * Esta função será renomeada após reorganização das funções popularSelect*
+ * Usa consulta direta sem alterar propriedades do api_info
+ * Popular sempre o primeiro select (índice 0) da configuração
  * 
- * @returns {Object} Objeto com os campos relacionados e seus valores
- * @example
- * // Se campos_relacionados = ['idgrupo'] e select grupo tem value = 2
- * // Retorna: {idgrupo: 2}
+ * @param {Object} configSelects - Configuração completa dos selects
+ * @param {Array} configSelects.campos - Nomes dos campos ['grupo', 'subgrupo']
+ * @param {Array} configSelects.campo_value - Campos para value ['idgrupo', 'idsubgrupo']
+ * @param {Array} configSelects.campo_exibir - Campos para texto ['grupo', 'subgrupo']
+ * @returns {Promise<void>}
  */
-function capturaCamposRelacionados() {
-    console.log('🔗 Iniciando captura de campos relacionados...');
-    
-    const camposCapturados = {};
-    
-    // Só executa se houver campos relacionados configurados
-    if (!window.api_info.campos_relacionados || window.api_info.campos_relacionados.length === 0) {
-        console.log('📝 Nenhum campo relacionado configurado - retornando objeto vazio');
-        return camposCapturados;
-    }
-    
-    // Itera pelos campos relacionados configurados
-    window.api_info.campos_relacionados.forEach(nomeCampo => {
-        console.log(`🔍 Procurando select para campo relacionado: ${nomeCampo}`);
-        
-        // Tenta localizar a select correspondente (por name ou id)
-        let selectElement = document.querySelector(`select[name="${nomeCampo}"]`) || 
-                           document.querySelector(`select[id="${nomeCampo}"]`) ||
-                           document.querySelector(`select[name="${nomeCampo.replace('id', '')}"]`) ||
-                           document.querySelector(`select[id="${nomeCampo.replace('id', '')}"]`);
-        
-        if (selectElement && selectElement.value) {
-            camposCapturados[nomeCampo] = selectElement.value;
-            console.log(`✅ Campo relacionado capturado: ${nomeCampo} = ${selectElement.value}`);
-        } else {
-            console.warn(`⚠️ Select não encontrada ou sem valor para campo relacionado: ${nomeCampo}`);
+async function FuncAguardandoNome(configSelects) {
+    try {
+        // ✅ Validações básicas
+        if (!window.api_info?.view_Select) {
+            console.error('❌ view_Select não configurada no api_info');
+            return;
         }
-    });
-    
-    console.log('🔗 Campos relacionados capturados:', camposCapturados);
-    return camposCapturados;
+        
+        if (!configSelects?.campos?.[0]) {
+            console.error('❌ configSelects inválido ou vazio');
+            return;
+        }
+        
+        // ✅ UMA LINHA - sem alteração de propriedades
+        const resultado = await window.api_info.consulta_dados_form(window.api_info.view_Select);
+        
+        if (resultado.mensagem === "sucesso") {
+            // ✅ Dados já estão no configSelects - não há duplicidade
+            const indiceCampo = 0; // Sempre popula o primeiro select
+            const nomeCampo = configSelects.campos[indiceCampo];
+            
+            const dados = resultado.dados.dados.map(item => ({
+                value: item[configSelects.campo_value[indiceCampo]],
+                text: item[configSelects.campo_exibir[indiceCampo]]
+            }));
+            
+            await popularSelectComDados(nomeCampo, dados);
+            console.log(`✅ Select '${nomeCampo}' populada com ${dados.length} opções`);
+        } else {
+            console.warn(`⚠️ Falha na consulta: ${resultado.mensagem}`);
+        }
+        
+    } catch (error) {
+        console.error(`❌ Erro ao popular primeiro select:`, error);
+    }
 }
 
 export {
@@ -1586,14 +1583,14 @@ export {
     buscarDadosParaSelect,  // Nova função com configuração
     obterValoresSelects,
     obterElementoSelect,
-    popularSelect,  // Retrocompatibilidade
-    capturaCamposRelacionados,  // Nova função para campos relacionados
     // Novas funções para sistema de filtros genérico
     processarFiltroSelect,
     popularSelectComDados,
     // Sistema de filtros inteligente (nova implementação)
     construirFiltroInicial,
-    resetarCamposPosteriores
+    resetarCamposPosteriores,
+    // Função temporária aguardando nome definitivo
+    FuncAguardandoNome
 };
 
 

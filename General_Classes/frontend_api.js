@@ -291,7 +291,8 @@ export default class api_fe {
                 campos: this.campos || ["Todos"],
                 database_path: this.database_path || "",
                 database_name: this.database_name || "",
-                application_path: this.application_path
+                application_path: this.application_path,
+                filtros: this.filtros
             };
 
             flow_marker(`🌐 Fazendo requisição para: ${url}`, payload);
