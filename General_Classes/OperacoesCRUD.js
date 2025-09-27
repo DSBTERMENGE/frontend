@@ -118,13 +118,9 @@ function configurarListenersNavegacao() {
 
 function btnRodapeForm_Click(acao, instancia, dados) {
     
-    // 🛡️ PROTEÇÃO: Verificar se está em modo edição/inclusão
-    if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
-        if (acao !== 'salvar' && acao !== 'encerrar') {
-
-            AlertaEstadoDeEdicao_Inclusao();
-            return; // Para aqui, não executa a ação
-        }
+    // Chamada para validação unificada
+    if (!valida_diversificado(acao)) {
+        return; // Interrompe fluxo se validação falhar
     }
     
     switch (acao) {
@@ -151,6 +147,11 @@ function btnRodapeForm_Click(acao, instancia, dados) {
             break;
             
         case 'editar':
+            // 🛡️ PROTEÇÃO: Impede edição em tabela vazia
+            if (reg_num === -1) {
+                alert('Tabela ou view não possui registros, somente inclusão é permitido.');
+                return;
+            }
             botao_ativo = 'editar';
             // dadosOriginaisRegistro já foi populado na função _popularFormularioAutomatico (linha 842)
             // Não sobrescrever aqui pois perderia o idgrupo!
@@ -408,51 +409,23 @@ async function popularFormulario() {
             const dadosRecebidos = resultadoAPI.dados.dados;
             if (dadosRecebidos && dadosRecebidos.length > 0) {
                 
-                // Verifica se é registro vazio (backend normalizado)
-                const primeiroRegistro = dadosRecebidos[0];
-                const isRegistroVazio = Object.values(primeiroRegistro).every(valor => valor === "");
-                
-                if (isRegistroVazio) {
-                    // 🎯 CENÁRIO: Backend retornou registro vazio normalizado
-                    console.warn("⚠️ Backend retornou registro vazio - ativando modo inclusão automático");
-                    
-                    dadosDisponiveis = dadosRecebidos; // Mantém o registro vazio para consistência
-                    reg_num = 0;
-                    
-                    // Popula formulário com campos vazios
-                    _popularFormularioAutomatico(primeiroRegistro);
-                    
-                    // Ativa modo inclusão automático
-                    botao_ativo = 'incluir';
-                    _setModoEditarNovo(true);
-                    
-                    flow_marker('🎯 Modo inclusão automático ativado - registro vazio do backend');
-                    
-                    return {
-                        sucesso: true,
-                        dados: dadosRecebidos,
-                        mensagem: "Registro vazio - modo inclusão ativado automaticamente"
-                    };
-                } else {
-                    // 🎯 CENÁRIO: Dados reais do backend
-                    dadosDisponiveis = dadosRecebidos || [];
-                    reg_num = 0;
+                // População unificada - sempre há registro [0] para popular
+                dadosDisponiveis = dadosRecebidos || [];
 
-                    _popularFormularioAutomatico(dadosRecebidos[0]);
-                    
-                    // Popula select de navegação se existir função
-                    if (typeof _popularSelectNavegacao === 'function') {
-                        _popularSelectNavegacao("grupos", dadosRecebidos);
-                    }
-                    
-                    console.log('✅ População concluída com sucesso - Formulário populado com dados');
-                    
-                    return {
-                        sucesso: true,
-                        dados: dadosRecebidos,
-                        mensagem: `Formulário populado com ${dadosRecebidos.length} registros`
-                    };
+                _popularFormularioAutomatico(dadosRecebidos[0]);
+                
+                // Popula select de navegação se existir função
+                if (typeof _popularSelectNavegacao === 'function') {
+                    _popularSelectNavegacao("grupos", dadosRecebidos);
                 }
+                
+                console.log('✅ População concluída com sucesso - Formulário populado com dados');
+                
+                return {
+                    sucesso: true,
+                    dados: dadosRecebidos,
+                    mensagem: `Formulário populado com ${dadosRecebidos.length} registros`
+                };
             }
         } else {
             throw new Error(`Erro na API: ${resultadoAPI.mensagem}`);
@@ -647,6 +620,39 @@ configurarListenersNavegacao();
 //*************************************************************
 //                      FUNÇÕES PARA VALIDAÇÃO
 // ************************************************************
+
+/**
+ * Validação diversificada para ações de botões do formulário
+ * @param {string} acao - Ação do botão
+ * @returns {boolean} true = pode prosseguir, false = interromper
+ */
+function valida_diversificado(acao) {
+    // 1. VALIDAÇÃO MOVIDA: Verificar se está em modo edição/inclusão
+    if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
+        if (acao !== 'salvar' && acao !== 'encerrar') {
+            AlertaEstadoDeEdicao_Inclusao();
+            return false;
+        }
+    }
+    
+    // 2. VALIDAÇÃO: Verificar se formulário está populado
+    if (!dadosOriginaisRegistro || Object.keys(dadosOriginaisRegistro).length === 0) {
+        if (acao !== 'encerrar') {
+            alert('O formulário ainda não possui dados.');
+            return false;
+        }
+    }
+    
+    // 3. VALIDAÇÃO: Verificar se registro é vazio (tabela/view sem dados)
+    if (dadosOriginaisRegistro && Object.values(dadosOriginaisRegistro).every(valor => valor === "")) {
+        if (acao !== 'incluir' && acao !== 'salvar' && acao !== 'encerrar') {
+            alert('Tabela ou view não possui registros, somente inclusão é permitido.');
+            return false;
+        }
+    }
+    
+    return true; // Todas validações passaram
+}
 
 /**
  * Valida se é possível navegar para o registro solicitado e executa a navegação.
@@ -1033,79 +1039,6 @@ ARQUITETURA:
 // ============= MÉTODOS DE POPULATION INDIVIDUAL =============
 
 /**
- * 🔄 POPULAR SELECT ESPECÍFICA: Preenche uma select individual usando configuração
- * 
- * @param {FormComum} instanciaForm - Instância do formulário com objSelect
- * @param {string} campo - Nome do campo da select
- * @param {Object} configPopularSelects - Configuração com dados da select
- * @param {boolean} manterPrimeiro - Se deve manter "Selecione..."
- * @returns {boolean} Sucesso da operação
- */
-async function popularSelectIndividual(instanciaForm, campo, configPopularSelects, manterPrimeiro = true) {
-    console.warn('⚠️ FUNÇÃO OBSOLETA: popularSelectIndividual() ainda está sendo usada');
-    console.warn('💡 Migre para FuncAguardandoNome() - nova implementação');
-    console.trace('📍 Chamada detectada em:');
-    
-    if (!instanciaForm || !instanciaForm.objSelect) {
-        console.warn('❌ Instância do formulário ou objSelect não disponível');
-        return false;
-    }
-    
-    try {
-        // Busca dados usando a configuração
-        const dados = await buscarDadosParaSelect(configPopularSelects);
-        
-        if (dados && dados.length > 0) {
-            return instanciaForm.objSelect.popularSelect(campo, dados, manterPrimeiro);
-        } else {
-            console.warn(`⚠️ Nenhum dado retornado para select '${campo}'`);
-            return false;
-        }
-    } catch (error) {
-        console.error(`❌ Erro ao popular select '${campo}':`, error);
-        return false;
-    }
-}
-
-/**
- * 🔄 POPULAR TODAS AS SELECTS: Preenche múltiplas selects usando pool de configurações
- * 
- * @param {FormComum} instanciaForm - Instância do formulário
- * @param {Object} poolConfigPopularSelects - Pool de configurações {campo: config}
- * @param {boolean} manterPrimeiro - Se deve manter "Selecione..."
- * @returns {Object} Relatório {sucesso: [], falha: []}
- */
-async function popularTodasSelects(instanciaForm, poolConfigPopularSelects, manterPrimeiro = true) {
-    console.warn('⚠️ FUNÇÃO OBSOLETA: popularTodasSelects() ainda está sendo usada');
-    console.warn('💡 Migre para FuncAguardandoNome() - nova implementação');
-    console.trace('📍 Chamada detectada em:');
-    
-    if (!instanciaForm || !instanciaForm.objSelect) {
-        console.warn('❌ Instância do formulário ou objSelect não disponível');
-        return { sucesso: [], falha: [] };
-    }
-    
-    const relatorio = { sucesso: [], falha: [] };
-    
-    // Itera sobre cada configuração do pool
-    for (const [campo, config] of Object.entries(poolConfigPopularSelects)) {
-        try {
-            const sucesso = await popularSelectIndividual(instanciaForm, campo, config, manterPrimeiro);
-            if (sucesso) {
-                relatorio.sucesso.push(campo);
-            } else {
-                relatorio.falha.push(campo);
-            }
-        } catch (error) {
-            console.error(`❌ Erro ao popular select '${campo}':`, error);
-            relatorio.falha.push(campo);
-        }
-    }
-    
-    return relatorio;
-}
-
-/**
  * 🧹 LIMPAR SELECT: Remove todas as opções exceto "Selecione..."
  * 
  * @param {FormComum} instanciaForm - Instância do formulário
@@ -1194,22 +1127,7 @@ function resetarCamposPosteriores(campoAlterado, filtros, ordenCampos) {
  *   cidade: { dependente: 'bairro', endpoint: '/api/bairros' }
  * });
  */
-function configurarSelectsCascata(instanciaForm, configCascata) {
-    if (!instanciaForm || !instanciaForm.objSelect) {
-        console.warn('❌ Instância do formulário não disponível para cascata');
-        return;
-    }
-    
-    // Registra listener para eventos de mudança
-    const container = instanciaForm.form.querySelector('.controles-container');
-    if (container) {
-        container.addEventListener('select-alterada', (event) => {
-            handlerSelectsCascata(event, configCascata, instanciaForm);
-        });
-        
-        console.log('✅ Sistema de cascata configurado para:', Object.keys(configCascata));
-    }
-}
+
 
 /**
  * 🎯 HANDLER DE CASCATA: Processa mudanças em selects interligadas
@@ -1218,51 +1136,7 @@ function configurarSelectsCascata(instanciaForm, configCascata) {
  * @param {Object} configCascata - Configuração das dependências
  * @param {FormComum} instanciaForm - Instância do formulário
  */
-async function handlerSelectsCascata(event, configCascata, instanciaForm) {
-    const { campo, valor, selecionados } = event.detail;
-    
-    console.log(`🔄 Processando cascata para: ${campo} = ${valor}`);
-    
-    // Verifica se este campo tem dependentes
-    if (configCascata[campo] && configCascata[campo].dependente) {
-        const campoDependente = configCascata[campo].dependente;
-        const endpoint = configCascata[campo].endpoint;
-        
-        try {
-            // Limpa select dependente
-            limparSelectIndividual(instanciaForm, campoDependente);
-            
-            if (valor) {
-                // Busca dados para o dependente
-                const dadosDependente = await buscarDadosSelect(endpoint, { [campo]: valor });
-                
-                if (dadosDependente && dadosDependente.length > 0) {
-                    popularSelectIndividual(instanciaForm, campoDependente, dadosDependente);
-                    console.log(`✅ Select '${campoDependente}' populada com ${dadosDependente.length} itens`);
-                }
-            }
-            
-            // Limpa selects dependentes do dependente (cascata completa)
-            limparDependentesRecursivo(campoDependente, configCascata, instanciaForm);
-            
-        } catch (error) {
-            console.error(`❌ Erro na cascata ${campo} → ${campoDependente}:`, error);
-        }
-    }
-}
 
-/**
- * 🧹 LIMPAR DEPENDENTES RECURSIVO: Limpa toda a cadeia de dependências
- */
-function limparDependentesRecursivo(campo, configCascata, instanciaForm) {
-    if (configCascata[campo] && configCascata[campo].dependente) {
-        const proximoDependente = configCascata[campo].dependente;
-        limparSelectIndividual(instanciaForm, proximoDependente);
-        
-        // Continua recursivamente
-        limparDependentesRecursivo(proximoDependente, configCascata, instanciaForm);
-    }
-}
 
 // ============= INTEGRAÇÃO COM BACKEND =============
 
@@ -1276,54 +1150,7 @@ function limparDependentesRecursivo(campo, configCascata, instanciaForm) {
  * @param {string} configPopularSelects.campo_value - Campo para value da option
  * @returns {Promise<Array>} Array de {value, text}
  */
-async function buscarDadosParaSelect(configPopularSelects) {
-    console.warn('⚠️ FUNÇÃO OBSOLETA: buscarDadosParaSelect() ainda está sendo usada');
-    console.warn('💡 Migre para FuncAguardandoNome() - nova implementação');
-    console.trace('📍 Chamada detectada em:');
-    
-    try {
-        const { view_name, colunasDeDados, campo_exibir, campo_value } = configPopularSelects;
-        
-        console.log(`📤 Buscando dados para select da view: ${view_name}`);
-        
-        if (!window.api_info) {
-            throw new Error("API global não disponível (window.api_info)");
-        }
-        
-        // Configura API para buscar dados específicos da select
-        const configOriginal = {
-            view: window.api_info.view,
-            campos: window.api_info.campos
-        };
-        
-        // Aplica configuração da select
-        window.api_info.view = view_name;
-        window.api_info.campos = colunasDeDados;
-        
-        const resultadoAPI = await window.api_info.consulta_dados_form();
-        
-        // Restaura configuração original
-        window.api_info.view = configOriginal.view;
-        window.api_info.campos = configOriginal.campos;
-        
-        if (resultadoAPI.mensagem === "sucesso") {
-            // Converte para formato {value, text}
-            const dadosFormatados = resultadoAPI.dados.dados.map(item => ({
-                value: item[campo_value],
-                text: item[campo_exibir]
-            }));
-            
-            console.log(`📥 Dados formatados para select:`, dadosFormatados);
-            return dadosFormatados;
-        } else {
-            throw new Error(resultadoAPI.mensagem || "Erro na consulta da view");
-        }
-        
-    } catch (error) {
-        console.error(`❌ Erro ao buscar dados para select:`, error);
-        return [];
-    }
-}
+
 
 // ============= MÉTODOS DE CONVENIÊNCIA =============
 
@@ -1414,12 +1241,13 @@ async function processarFiltroSelect(config) {
                 throw new Error("API global não disponível (window.api_info)");
             }
             
-            // Monta objeto de filtros para a API
-            const filtros = { [nomeFiltro]: valor };
-            console.log(`📤 Consultando dados com filtros:`, filtros);
+            // Atualiza filtros da API antes da consulta
+            const filtrosAnteriores = window.api_info.filtros;
+            window.api_info.filtros = `${nomeFiltro}=${valor}`;
+            console.log(`📤 Consultando subgrupos_view com filtros: ${window.api_info.filtros}`);
             
             // Faz consulta filtrada à API
-            const resultadoAPI = await window.api_info.consulta_dados_form(filtros);
+            const resultadoAPI = await window.api_info.consulta_dados_form('subgrupos_view');
             
             if (resultadoAPI.mensagem === "sucesso" && resultadoAPI.dados.dados.length > 0) {
                 const dados = resultadoAPI.dados.dados;
@@ -1439,18 +1267,18 @@ async function processarFiltroSelect(config) {
                         
                         console.log(`✅ Primeira opção selecionada automaticamente: ${primeiraOpcao.value}`);
                         
-                        // 5. EVENTO: Dispara evento para atualizar formulário
-                        const eventoAlteracao = new CustomEvent('select-alterada', {
-                            detail: {
-                                campo: selectDestino,
-                                valor: primeiraOpcao.value,
-                                elemento: selectDestinoElement
-                            }
-                        });
-                        selectDestinoElement.dispatchEvent(eventoAlteracao);
-                        
-                        // 6. POPULAÇÃO DO FORMULÁRIO: Atualiza formulário com primeiro registro
+                        // 5. POPULAÇÃO DO FORMULÁRIO: Atualiza formulário com primeiro registro
                         _popularFormularioAutomatico(dados[0]);
+                        
+                        // 7. SINCRONIZAÇÃO reg_num: Verifica se dados são reais ou vazios
+                        const registroAtual = dados[0];
+                        const todosVazios = Object.values(registroAtual).every(valor => valor === "");
+                        
+                        if (todosVazios) {
+                            reg_num = -1; // Tabela vazia
+                        } else {
+                            reg_num = 0;  // Dados reais
+                        }
                     }
                     
                     console.log(`✅ Filtro processado com sucesso - ${dados.length} registros encontrados`);
@@ -1460,6 +1288,7 @@ async function processarFiltroSelect(config) {
                 }
             } else {
                 console.log(`⚠️ Nenhum dado retornado da API para filtro ${nomeFiltro} = ${valor}`);
+                alert("Não encontrado registros para o filtro selecionado");
             }
         } else {
             console.log(`⚠️ Valor vazio para filtro - select '${selectDestino}' mantida limpa`);
@@ -1524,9 +1353,9 @@ async function popularSelectComDados(nomeSelect, dados) {
 // ============= FUNÇÃO TEMPORÁRIA - AGUARDANDO NOME DEFINITIVO =============
 
 /**
- * 🚧 FUNÇÃO AGUARDANDO NOME: Popular primeira select com dados diretos
+ * � POPULAR SELECT: Popular primeira select com dados diretos
  * 
- * Esta função será renomeada após reorganização das funções popularSelect*
+ * Esta função popula a primeira select da configuração com dados do backend
  * Usa consulta direta sem alterar propriedades do api_info
  * Popular sempre o primeiro select (índice 0) da configuração
  * 
@@ -1536,7 +1365,7 @@ async function popularSelectComDados(nomeSelect, dados) {
  * @param {Array} configSelects.campo_exibir - Campos para texto ['grupo', 'subgrupo']
  * @returns {Promise<void>}
  */
-async function FuncAguardandoNome(configSelects) {
+async function popularSelect(configSelects) {
     try {
         // ✅ Validações básicas
         if (!window.api_info?.view_Select) {
@@ -1576,11 +1405,7 @@ async function FuncAguardandoNome(configSelects) {
 export {
     popularFormulario,  // Única função externa - para população inicial
     // Novos métodos de selects transferidos do ConstrutorDeForms.js
-    popularSelectIndividual,
-    popularTodasSelects,
     limparSelectIndividual,
-    configurarSelectsCascata,
-    buscarDadosParaSelect,  // Nova função com configuração
     obterValoresSelects,
     obterElementoSelect,
     // Novas funções para sistema de filtros genérico
@@ -1589,8 +1414,8 @@ export {
     // Sistema de filtros inteligente (nova implementação)
     construirFiltroInicial,
     resetarCamposPosteriores,
-    // Função temporária aguardando nome definitivo
-    FuncAguardandoNome
+    // Função para popular primeira select
+    popularSelect
 };
 
 
