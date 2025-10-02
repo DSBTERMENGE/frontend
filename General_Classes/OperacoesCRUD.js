@@ -262,7 +262,7 @@ function processarEditar() {
  * Limpa todos os campos do formulário para nova inclusão
  */
 function processarIncluir() {
-    const campos = document.querySelectorAll('input, textarea, select');
+    const campos = document.querySelectorAll('input, textarea, select:not([id^="select_"])');
     
     campos.forEach(campo => {
         if (campo.type === 'checkbox') {
@@ -396,6 +396,9 @@ async function processarDeletar() {
  */
 async function popularFormulario() {
     console.log('🔄 Iniciando população do formulário...');
+    console.log('🔍 DEBUG CRÍTICO: popularFormulario() foi chamada!');
+    console.log('🔍 DEBUG: window.api_info existe?', !!window.api_info);
+    console.log('🔍 DEBUG: window.api_info.view:', window.api_info?.view);
     
     try {
         
@@ -403,7 +406,8 @@ async function popularFormulario() {
             throw new Error("API global não disponível (window.api_info)");
         }
         
-        const resultadoAPI = await window.api_info.consulta_dados_form();
+        const theview = window.api_info.view;
+        const resultadoAPI = await window.api_info.consulta_dados_form(theview);
         
         if (resultadoAPI.mensagem === "sucesso") {
             const dadosRecebidos = resultadoAPI.dados.dados;
@@ -627,30 +631,36 @@ configurarListenersNavegacao();
  * @returns {boolean} true = pode prosseguir, false = interromper
  */
 function valida_diversificado(acao) {
-    // 1. VALIDAÇÃO MOVIDA: Verificar se está em modo edição/inclusão
-    if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
-        if (acao !== 'salvar' && acao !== 'encerrar') {
-            AlertaEstadoDeEdicao_Inclusao();
-            return false;
+    // Verifica se há dados no registro original
+    if (dadosOriginaisRegistro) {
+        if (Object.values(dadosOriginaisRegistro).some(valor => valor !== "")) {
+            // Encontrado um ou mais campos com valor diferente de ""
+            if (botao_ativo === 'editar' || botao_ativo === 'incluir') {
+                // Estando em processo de inclusão ou edição, o Usuário pressiona
+                // outro botão que não seja salvar ou encerrar
+                if (acao !== 'salvar' && acao !== 'encerrar') {
+                    AlertaEstadoDeEdicao_Inclusao();
+                    return false;
+                }
+            }
+        // Abaixo a seguir o registro só comtem "" (vazio)
+        } else {
+            // Estando em processo de inclusão, o Usuário pressiona
+            // outra vez  botão que não seja salvar ou encerrar
+            if (botao_ativo === 'incluir' && acao !== 'salvar' && acao !== 'encerrar') {
+                AlertaEstadoDeEdicao_Inclusao();
+                return false;
+            }
+            // Sendo um registro vazio, e não estando em processo de inclusão, o Usuário 
+            // pressiona outro botão que não seja incluir ou encerrar
+            if (botao_ativo !== 'incluir' && acao !== 'incluir' && acao !== 'encerrar') {
+                alert('Tabela ou view não possui registros, somente inclusão é permitido.');
+                return false;
+            }
+
         }
-    }
-    
-    // 2. VALIDAÇÃO: Verificar se formulário está populado
-    if (!dadosOriginaisRegistro || Object.keys(dadosOriginaisRegistro).length === 0) {
-        if (acao !== 'encerrar') {
-            alert('O formulário ainda não possui dados.');
-            return false;
-        }
-    }
-    
-    // 3. VALIDAÇÃO: Verificar se registro é vazio (tabela/view sem dados)
-    if (dadosOriginaisRegistro && Object.values(dadosOriginaisRegistro).every(valor => valor === "")) {
-        if (acao !== 'incluir' && acao !== 'salvar' && acao !== 'encerrar') {
-            alert('Tabela ou view não possui registros, somente inclusão é permitido.');
-            return false;
-        }
-    }
-    
+    }   
+   
     return true; // Todas validações passaram
 }
 
@@ -867,6 +877,71 @@ function valida_salvar() {
                    FUNÇÕES AUXILIARES
 =============================================================
 */
+
+/**
+ * 🎯 OBTENÇÃO DO ID DAS SELECTS DE FILTRO E PESQUISA DO FORMULÁRIO ATIVO
+ * 
+ * PADRÃO DE IDs DAS SELECTS: "select_" + nomeDoCampo
+ * Exemplos: 
+ * - Campo "grupos" → ID "select_grupos"
+ * - Campo "subgrupos" → ID "select_subgrupos" 
+ * - Campo "pesquisa" → ID "select_pesquisa"
+ * 
+ * Esta função centraliza a lógica de busca para evitar inconsistências
+ * e facilitar futuras alterações no padrão de nomenclatura.
+ * 
+ * @param {string} nomeCampo - Nome do campo (ex: "subgrupos", "grupos")
+ * @returns {HTMLElement|null} - Elemento select encontrado ou null se não existir
+ * @example 
+ * const selectSubgrupos = obterElementoSelect("subgrupos");
+ * if (selectSubgrupos) {
+ *     selectSubgrupos.innerHTML = '<option value="">Selecione...</option>';
+ * }
+ */
+function obterElementoSelect(nomeCampo) {
+    // O id quando criado em Construtor de Selects usa o padrao "select_" + nomeCampo
+    const idSelect = `select_${nomeCampo}`;
+    return window.api_info.form_ativo.form.querySelector(`#${idSelect}`);
+}
+
+/**
+ * 🎯 MAPEADOR DE DADOS: Associa nome do campo ao índice no array
+ * Elimina dependência de posições fixas tornando o sistema seguro contra mudanças de estrutura
+ * @param {Array} dados - Array de objetos do backend
+ * @param {Object} config - Configuração do mapeamento (opcional para auto-detecção)
+ * @param {string} config.campoValue - Nome do campo para value (ex: 'idgrupo')
+ * @param {string} config.campoText - Nome do campo para text (ex: 'grupo')
+ * @returns {Array} Dados mapeados com segurança por nome de campo
+ * @example
+ * // Uso com config explícita
+ * const dadosMapeados = mapeadorDeDados(dados, {
+ *   campoValue: 'idgrupo',
+ *   campoText: 'grupo'
+ * });
+ * 
+ * // Uso com auto-detecção (primeira coluna = value, segunda = text)
+ * const dadosMapeados = mapeadorDeDados(dados);
+ */
+function mapeadorDeDados(dic_dados, config) {
+    if (!dic_dados || !Array.isArray(dic_dados) || dic_dados.length === 0) {
+        console.warn('⚠️ mapeadorDeDados: dic_dados inválidos ou vazios');
+        return [];
+    }
+    
+    if (!config || !config.campoValue || !config.campoText) {
+        console.error('❌ mapeadorDeDados: config obrigatória com campoValue e campoText');
+        return [];
+    }
+    
+    console.log(`✅ Mapeando campos: value='${config.campoValue}', text='${config.campoText}'`);
+    
+    return dic_dados.map(item => ({
+        value: item[config.campoValue],      // Por nome, não índice [0]
+        text: item[config.campoText],        // Por nome, não índice [1]
+        dados_completos: item                // Preserva dados originais
+    }));
+}
+
  /* 📥 CAPTURA DADOS ATUAIS DO FORMULÁRIO
  * Coleta todos os valores atuais dos campos do formulário
  * @returns {Object} Objeto com valores atuais dos campos
@@ -881,10 +956,16 @@ function _capturarDadosAtuaisFormulario() {
         return {};
     }
     
+    // 1. Captura dados dos campos do formulário (input, textarea, select)
     const campos = formCrud.querySelectorAll('input, textarea, select');
     
     campos.forEach(campo => {
         if (campo.id) {
+            // Pula apenas selects de filtro (que começam com "select_")
+            if (campo.id.startsWith('select_')) {
+                return;
+            }
+            
             if (campo.type === 'checkbox') {
                 dados[campo.id] = campo.checked;
             } else {
@@ -892,6 +973,22 @@ function _capturarDadosAtuaisFormulario() {
             }
         }
     });
+    
+    // 2. Extrai campos relacionados da string de filtros
+    if (window.api_info && window.api_info.filtros) {
+        const filtros = window.api_info.filtros;
+        
+        // Parse da string: "idgrupo = 3 AND idcategoria = 5" ou "idgrupo = 3"
+        const pares = filtros.split(' AND ');
+        
+        pares.forEach(par => {
+            const [campo, valor] = par.split(' = ');
+            // Ignora filtros com asterisco (placeholders)
+            if (valor && valor !== '*') {
+                dados[campo] = valor;
+            }
+        });
+    }
     
     return dados;
 }
@@ -990,7 +1087,12 @@ function _popularFormularioAutomatico(dados) {
     
     // Itera sobre as propriedades dos dados
     Object.keys(dados).forEach(campo => {
-        const elemento = document.getElementById(campo);
+        let elemento = null;
+        
+        // Busca no formulário ativo se disponível
+        if (window.api_info?.form_ativo) {
+            elemento = window.api_info.form_ativo.form.querySelector(`#${campo}`);
+        }
         
         if (elemento) {
             // Define valor baseado no tipo do elemento
@@ -1072,14 +1174,15 @@ function construirFiltroInicial(configSelects) {
         }
         
         const campos = configSelects.campos;
+        const camposValue = configSelects.campo_value;
         const filtros = [];
         
         // Todos os campos exceto o último (que é select de pesquisa)
         for (let i = 0; i < campos.length - 1; i++) {
-            filtros.push(`${campos[i]}=*`);
+            filtros.push(`${camposValue[i]} = *`);
         }
         
-        const filtroInicial = filtros.join(', ');
+        const filtroInicial = filtros.join(' AND ');
         console.log(`🔧 Filtro inicial construído: "${filtroInicial}"`);
         return filtroInicial;
         
@@ -1152,7 +1255,6 @@ function resetarCamposPosteriores(campoAlterado, filtros, ordenCampos) {
  */
 
 
-// ============= MÉTODOS DE CONVENIÊNCIA =============
 
 /**
  * 📋 OBTER VALORES DAS SELECTS: Extrai valores selecionados
@@ -1167,22 +1269,6 @@ function obterValoresSelects(instanciaForm) {
     }
     
     return instanciaForm.objSelect.obterValores();
-}
-
-/**
- * 🎯 OBTER ELEMENTO SELECT: Retorna elemento DOM da select
- * 
- * @param {FormComum} instanciaForm - Instância do formulário
- * @param {string} campo - Nome do campo
- * @returns {HTMLSelectElement|null} Elemento select
- */
-function obterElementoSelect(instanciaForm, campo) {
-    if (!instanciaForm || !instanciaForm.objSelect) {
-        console.warn('❌ Instância do formulário não disponível');
-        return null;
-    }
-    
-    return instanciaForm.objSelect.obterElementoSelect(campo);
 }
 
 // ============= SISTEMA DE FILTROS COM SELECTS =============
@@ -1217,6 +1303,7 @@ function obterElementoSelect(instanciaForm, campo) {
  *   }
  * });
  */
+
 async function processarFiltroSelect(config) {
     try {
         console.log(`🎯 Iniciando processamento de filtro select:`, config);
@@ -1228,7 +1315,7 @@ async function processarFiltroSelect(config) {
         }
         
         // 1. LIMPEZA: Limpa select de destino
-        const selectDestinoElement = document.querySelector(`select[name="${selectDestino}"]`);
+        const selectDestinoElement = obterElementoSelect(selectDestino);
         if (selectDestinoElement) {
             selectDestinoElement.innerHTML = '<option value="">Selecione...</option>';
             console.log(`🧹 Select '${selectDestino}' limpa`);
@@ -1241,25 +1328,29 @@ async function processarFiltroSelect(config) {
                 throw new Error("API global não disponível (window.api_info)");
             }
             
-            // Atualiza filtros da API antes da consulta
-            const filtrosAnteriores = window.api_info.filtros;
-            window.api_info.filtros = `${nomeFiltro}=${valor}`;
-            console.log(`📤 Consultando subgrupos_view com filtros: ${window.api_info.filtros}`);
+            // Usa filtro já preparado pelo prepararStrFiltro() - não substitui!
+            console.log(`📤 Consultando ${window.api_info.view} com filtros: ${window.api_info.filtros}`);
             
             // Faz consulta filtrada à API
-            const resultadoAPI = await window.api_info.consulta_dados_form('subgrupos_view');
+            const resultadoAPI = await window.api_info.consulta_dados_form(window.api_info.view);
             
             if (resultadoAPI.mensagem === "sucesso" && resultadoAPI.dados.dados.length > 0) {
                 const dados = resultadoAPI.dados.dados;
                 
-                // Verifica se são dados reais ou registro vazio
-                const primeiroRegistro = dados[0];
-                const isRegistroVazio = Object.values(primeiroRegistro).every(valor => valor === "");
+                // Backend cria um registro fictício com valores "" para permitir que o mecanismo do frontend insira um registro novo de fato
+                const todosVazios = Object.values(dados[0]).every(valor => valor === "");
+                if (todosVazios) {
+                    alert("Não encontrado registros na tabela ou view para o filtro selecionado, você poderá inserir um registro novo");
+                }
                 
-                if (!isRegistroVazio) {
-                    // 3. POPULAÇÃO: Popula select de destino
-                    await popularSelectComDados(selectDestino, dados);
-                    
+                if (!todosVazios) {
+                    // 3. POPULAÇÃO: Popula select de destino com configuração correta para subgrupos
+                    const configSubgrupos = {
+                        campoValue: 'idsubgrupo',  // Campo correto para value
+                        campoText: 'subgrupo'      // Campo correto para text
+                    };
+                    await popularSelectComDados(selectDestino, dados, configSubgrupos);
+                        
                     // 4. SELEÇÃO AUTOMÁTICA: Seleciona primeiro item automaticamente
                     if (selectDestinoElement && selectDestinoElement.children.length > 1) {
                         const primeiraOpcao = selectDestinoElement.children[1]; // Pula "Selecione..."
@@ -1283,8 +1374,6 @@ async function processarFiltroSelect(config) {
                     
                     console.log(`✅ Filtro processado com sucesso - ${dados.length} registros encontrados`);
                     return true;
-                } else {
-                    console.log(`⚠️ Nenhum registro encontrado para o filtro ${nomeFiltro} = ${valor}`);
                 }
             } else {
                 console.log(`⚠️ Nenhum dado retornado da API para filtro ${nomeFiltro} = ${valor}`);
@@ -1302,18 +1391,28 @@ async function processarFiltroSelect(config) {
     }
 }
 
+
+
+
+
+
+
 /**
  * 📋 POPULAR SELECT COM DADOS: Popula select com array de dados
  * 
  * @param {string} nomeSelect - Nome da select a popular
  * @param {Array} dados - Array de dados do backend
+ * @param {Object} config - Configuração de mapeamento (opcional para auto-detecção)
+ * @param {string} config.campoValue - Campo para value
+ * @param {string} config.campoText - Campo para text
  * @returns {Promise<boolean>} Sucesso da operação
  */
-async function popularSelectComDados(nomeSelect, dados) {
+async function popularSelectComDados(nomeSelect, dados, config = null) {
     try {
         // Busca select criado pelo ConstrutorDeSelects (padrão: id="select_" + campo)
         // Acrescenta "select_" ao nome do campo para localizar o select desejado
-        const selectElement = document.getElementById(`select_${nomeSelect}`);
+        // form é uma propriedade da classe FormComum a qual api_info tem acesso
+        const selectElement = window.api_info.form_ativo.form.querySelector(`#select_${nomeSelect}`);
         if (!selectElement) {
             console.warn(`⚠️ Select não encontrada: ${nomeSelect}`);
             return false;
@@ -1322,19 +1421,12 @@ async function popularSelectComDados(nomeSelect, dados) {
         // Mantém opção "Selecione..."
         selectElement.innerHTML = '<option value="">Selecione...</option>';
         
-        // Determina automaticamente as colunas para value e text
-        const primeiroRegistro = dados[0];
-        const colunas = Object.keys(primeiroRegistro);
-        
-        // Convenção: primeira coluna = value (geralmente ID), segunda = text (nome/descrição)
-        const colunaValue = colunas[0];
-        const colunaText = colunas.length > 1 ? colunas[1] : colunas[0];
-        
-        // Adiciona opções
-        dados.forEach(item => {
+    // 🎯 MAPEAMENTO SEGURO: Usa configuração específica obrigatória
+    const dadosMapeados = mapeadorDeDados(dados, config);        // Adiciona opções usando dados mapeados com segurança
+        dadosMapeados.forEach(item => {
             const option = document.createElement('option');
-            option.value = item[colunaValue];
-            option.textContent = item[colunaText];
+            option.value = item.value;
+            option.textContent = item.text;
             selectElement.appendChild(option);
         });
         
@@ -1378,7 +1470,7 @@ async function popularSelect(configSelects) {
             return;
         }
         
-        // ✅ UMA LINHA - sem alteração de propriedades
+        // ✅ DADOS PARA POPULAR SELECT(usando a mesma função que popula o formulário)
         const resultado = await window.api_info.consulta_dados_form(window.api_info.view_Select);
         
         if (resultado.mensagem === "sucesso") {
@@ -1386,13 +1478,14 @@ async function popularSelect(configSelects) {
             const indiceCampo = 0; // Sempre popula o primeiro select
             const nomeCampo = configSelects.campos[indiceCampo];
             
-            const dados = resultado.dados.dados.map(item => ({
-                value: item[configSelects.campo_value[indiceCampo]],
-                text: item[configSelects.campo_exibir[indiceCampo]]
-            }));
+            // 🎯 CONFIGURAÇÃO CORRETA PARA MAPEAMENTO
+            const configMapeamento = {
+                campoValue: configSelects.campo_value[indiceCampo],
+                campoText: configSelects.campo_exibir[indiceCampo]
+            };
             
-            await popularSelectComDados(nomeCampo, dados);
-            console.log(`✅ Select '${nomeCampo}' populada com ${dados.length} opções`);
+            await popularSelectComDados(nomeCampo, resultado.dados.dados, configMapeamento);
+            console.log(`✅ Select '${nomeCampo}' populada com ${resultado.dados.dados.length} opções`);
         } else {
             console.warn(`⚠️ Falha na consulta: ${resultado.mensagem}`);
         }

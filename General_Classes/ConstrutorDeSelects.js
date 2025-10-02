@@ -456,6 +456,9 @@ export class CriarSelects {
         // Busca o container principal dos selects para disparar o evento
         const container = document.querySelector(`.${this.cssClasses.container}`);
         
+        // Obtém o elemento select específico que disparou o evento
+        const elemento = this.obterElementoSelect(campo);
+        
         if (container) {
             // Cria evento customizado com dados necessários
             const eventoCustom = new CustomEvent('select-alterada', {
@@ -463,7 +466,8 @@ export class CriarSelects {
                     campo: campo,
                     valor: valor,
                     selecionados: selecionados,
-                    camposSelects: this.campos  // Lista de todos os campos
+                    camposSelects: this.campos,  // Lista de todos os campos
+                    idSelect: elemento ? elemento.id : null  // ID HTML da select
                 },
                 bubbles: true  // Permite que o evento suba na árvore DOM
             });

@@ -139,6 +139,13 @@ export default class api_fe {
         this.timeout = 10000; // 10 segundos
         
         /**
+         * Referência ao formulário atualmente ativo no sistema
+         * @type {HTMLElement|null}
+         * @example document.querySelector('#form-subgrupos')
+         */
+        this.form_ativo = null;
+        
+        /**
          * Headers HTTP padrão para todas as requisições
          * @type {Object}
          */
@@ -286,13 +293,17 @@ export default class api_fe {
             
             // Faz requisição direta para o endpoint /consultar_dados_db
             const url = `${this.backend_url}/consultar_dados_db`;
+            
+            // Validar filtro antes de enviar - se contém *, enviar vazio
+            const filtros = this.filtros.includes(' = *') ? '' : this.filtros;
+            
             const payload = {
                 view: the_view,
                 campos: this.campos || ["Todos"],
                 database_path: this.database_path || "",
                 database_name: this.database_name || "",
                 application_path: this.application_path,
-                filtros: this.filtros
+                filtros: filtros
             };
 
             flow_marker(`🌐 Fazendo requisição para: ${url}`, payload);
