@@ -20,6 +20,8 @@ FLUXO DE EXECUÇÃO:
 
 // Importando funções de debugging (primeiro para seguir critério)
 import { flow_marker, error_catcher } from './Debugger.js';
+// Importando funções de gerenciamento de eventos e controles
+import { removerEventos, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao } from './FuncoesAuxilares.js';
 
 
 /**
@@ -231,19 +233,13 @@ function processarEncerrar(instancia, dados) {
             
 
         } else {
-            // 📋 ENCERRAMENTO DE FORMULÁRIOS COMUNS
-            // Estes formulários por problemas de código não são de fato encerrados, são ocultados.
-            // Posteriormente, em caso de abrir outros formulários, são substituídos.
-            console.warn('⚠️ Modal não encontrado - processando formulário comum');
-            
-            // Fallback: usa método oficial de ocultar da instância
-            if (instancia && typeof instancia.ocultar === 'function') {
-
-                instancia.ocultar();
-
-            } else {
-                console.error('❌ Não foi possível encerrar o formulário - instância sem método ocultar');
+            // Remove listeners específicos do formulário
+            if (instancia && instancia.objSelect) {
+                instancia.objSelect.removerEventListeners();
             }
+            // Remove todos os eventos gerenciados pela coleção
+            removerEventos();
+            instancia.ocultar();
         }
     } catch (error) {
         console.error('❌ Erro ao encerrar formulário:', error);
@@ -262,7 +258,13 @@ function processarEditar() {
  * Limpa todos os campos do formulário para nova inclusão
  */
 function processarIncluir() {
-    const campos = document.querySelectorAll('input, textarea, select:not([id^="select_"])');
+    // Verificar se há formulário ativo disponível
+    if (!window.api_info?.form_ativo?.form) {
+        console.warn('⚠️ form_ativo não disponível em processarIncluir');
+        return;
+    }
+    
+    const campos = window.api_info.form_ativo.form.querySelectorAll('input, textarea, select:not([id^="select_"])');
     
     campos.forEach(campo => {
         if (campo.type === 'checkbox') {
@@ -949,15 +951,14 @@ function mapeadorDeDados(dic_dados, config) {
 function _capturarDadosAtuaisFormulario() {
     const dados = {};
     
-    // 🎯 CORREÇÃO: Captura apenas campos do formCrud específico
-    const formCrud = document.getElementById('formCrud');
-    if (!formCrud) {
-        console.warn('⚠️ formCrud não encontrado');
+    // 🎯 CORREÇÃO: Captura apenas campos do formulário ativo
+    if (!window.api_info?.form_ativo?.form) {
+        console.warn('⚠️ form_ativo não disponível em _capturarDadosAtuaisFormulario');
         return {};
     }
     
     // 1. Captura dados dos campos do formulário (input, textarea, select)
-    const campos = formCrud.querySelectorAll('input, textarea, select');
+    const campos = window.api_info.form_ativo.form.querySelectorAll('input, textarea, select');
     
     campos.forEach(campo => {
         if (campo.id) {
@@ -998,15 +999,19 @@ function _capturarDadosAtuaisFormulario() {
  * Usado quando array fica vazio após DELETE
  */
 function _limparFormulario() {
-    const formCrud = document.getElementById('formCrud');
-    if (!formCrud) {
-        console.warn('⚠️ formCrud não encontrado para limpeza');
+    if (!window.api_info?.form_ativo?.form) {
+        console.warn('⚠️ form_ativo não disponível em _limparFormulario');
         return;
     }
     
-    const campos = formCrud.querySelectorAll('input, textarea, select');
+    const campos = window.api_info.form_ativo.form.querySelectorAll('input, textarea, select');
     
     campos.forEach(campo => {
+        // Não limpar selects de filtro/pesquisa
+        if (campo.id && campo.id.startsWith('select_')) {
+            return;
+        }
+        
         if (campo.type === 'checkbox') {
             campo.checked = false;
         } else {
@@ -1044,26 +1049,25 @@ function emitirBeepLimite(limite) {
  * @param {boolean} ativar - true = campos editáveis/amarelos, false = readonly/cor padrão
  */
 function _setModoEditarNovo(ativar) {
-    // Captura TODOS os tipos de campos criados pelo framework
-    const campos = document.querySelectorAll('input, textarea, select, input[type="checkbox"], .radio-group');
+    // Verificar se há formulário ativo disponível
+    if (!window.api_info?.form_ativo?.form) {
+        console.warn('⚠️ form_ativo não disponível em _setModoEditarNovo');
+        return;
+    }
+    
+    // Usar funções auxiliares para gerenciar controles
+    if (ativar) {
+        // Modo edição: habilitar com fundo amarelo
+        habilitarModoEdicao();
+        console.log('✅ _setModoEditarNovo: Modo edição ativado');
+    } else {
+        // Modo readonly: desabilitar campos normais, manter selects ativas
+        desabilitarControlesDeFrm();
+        console.log('✅ _setModoEditarNovo: Modo readonly ativado');
+    }
+    
+    // Gerenciar botão encerrar (mantido como estava)
     const botaoEncerrar = document.getElementById('btn_encerrar');
-    
-    campos.forEach(campo => {
-        if (ativar) {
-            // Tornar editáveis e fundo amarelo
-            campo.removeAttribute('readonly');
-            campo.removeAttribute('disabled');
-            campo.style.backgroundColor = 'yellow';
-        } else {
-            // Tornar readonly e cor padrão
-            campo.setAttribute('readonly', true);
-            if (campo.tagName === 'SELECT' || campo.type === 'checkbox') {
-                campo.setAttribute('disabled', true);
-            }
-            campo.style.backgroundColor = '';
-        }
-    });
-    
     if (botaoEncerrar) {
         if (ativar) {
             // Cor azul VS Code
@@ -1341,6 +1345,8 @@ async function processarFiltroSelect(config) {
                 const todosVazios = Object.values(dados[0]).every(valor => valor === "");
                 if (todosVazios) {
                     alert("Não encontrado registros na tabela ou view para o filtro selecionado, você poderá inserir um registro novo");
+                    _limparFormulario();
+                    return true;
                 }
                 
                 if (!todosVazios) {
@@ -1378,6 +1384,9 @@ async function processarFiltroSelect(config) {
             } else {
                 console.log(`⚠️ Nenhum dado retornado da API para filtro ${nomeFiltro} = ${valor}`);
                 alert("Não encontrado registros para o filtro selecionado");
+                
+                // ✅ LIMPAR FORMULÁRIO quando não há registros
+                _limparFormulario();
             }
         } else {
             console.log(`⚠️ Valor vazio para filtro - select '${selectDestino}' mantida limpa`);
