@@ -1019,6 +1019,11 @@ function _limparFormulario() {
         }
     });
     
+    // ✅ LIMPAR VARIÁVEIS DE CONTROLE quando não há registros
+    dadosOriginaisRegistro = {};
+    dadosDisponiveis = [];
+    reg_num = -1;
+    
     // Garante que campos ficam readonly (modo visualização)
     _setModoEditarNovo(false);
 }
@@ -1375,6 +1380,7 @@ async function processarFiltroSelect(config) {
                             reg_num = -1; // Tabela vazia
                         } else {
                             reg_num = 0;  // Dados reais
+                            dadosDisponiveis = dados; // ✅ SINCRONIZAR dadosDisponiveis para navegação
                         }
                     }
                     
