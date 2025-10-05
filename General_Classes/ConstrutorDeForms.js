@@ -113,26 +113,122 @@ export class FormComum extends FormularioBase {
         super(titulo, posicaoCanvas, 'comum');  // ✅ Correto: 'comum' em vez de 'formulario'
         
         // 🎯 PROPRIEDADES CONFIGURÁVEIS (podem ser alteradas após instanciação)
+        
+        /**
+         * @type {string}
+         * @description Título do formulário exibido no header
+         * @example form.titulo = "Cadastro de Grupos"
+         */
         this.titulo = titulo;
+        
+        /**
+         * @type {string}  
+         * @description Descrição/subtítulo do formulário
+         * @example form.descricao = "1º nível de classificação"
+         */
         this.descricao = descricao;
+        
+        /**
+         * @type {Array<string>}
+         * @description Tipos de campo: 'input', 'combo', 'radio', 'checkbox', 'textarea'
+         * @example form.tipo = ['input', 'textarea', 'combo']
+         */
         this.tipo = tipo;
+        
+        /**
+         * @type {Array<string>}
+         * @description Rótulos dos campos exibidos ao usuário
+         * @example form.label = ['Nome', 'Descrição', 'Categoria']
+         */
         this.label = label;
+        
+        /**
+         * @type {Array<string>}
+         * @description Nomes/IDs únicos dos campos (sem espaços, usados como ID dos elementos)
+         * @example form.nomeCampo = ['nome', 'descricao', 'categoria']
+         */
         this.nomeCampo = nomeCampo;
+        
+        /**
+         * @type {Array<string|null>}
+         * @description Formatos dos campos: 'texto', 'moeda', 'pct', 'data' ou null
+         * @example form.format = ['texto', 'texto', null]
+         */
         this.format = format;
+        
+        /**
+         * @type {Array<{linha: number, coluna: number}>}
+         * @description Posições dos campos na grid (linha e coluna começam em 0)
+         * @example form.pos = [{linha: 0, coluna: 0}, {linha: 1, coluna: 0}]
+         */
         this.pos = pos;
+        
+        /**
+         * @type {Array<string>}
+         * @description Orientação dos campos: 'H' (horizontal) ou 'V' (vertical)
+         * @example form.alinhamento = ['H', 'V', 'H']
+         */
         this.alinhamento = alinhamento;
+        
+        /**
+         * @type {Array<number>}
+         * @description Larguras dos campos em rem
+         * @example form.largCampos = [25, 28, 20]
+         */
         this.largCampos = largCampos;
+        
+        /**
+         * @type {{x: number, y: number}}
+         * @description Posição do formulário no canvas em vw/vh
+         * @example form.posicaoCanvas = {x: 3, y: 5}
+         */
         this.posicaoCanvas = posicaoCanvas;
         
         // 🔧 PROPRIEDADES DE SISTEMA (controladas internamente)
-        this.fields = [];      // Elementos DOM dos campos (preenchido no render)
-        this.buttons = [];     // Elementos DOM dos botões (preenchido no render)
-        this.criarBotoes = null; // Instância CriarBtnRodape (criado no render)
-        this.objSelect = null;   // Instância CriarSelects (criado no render se necessário)
+        
+        /**
+         * @type {Array<HTMLElement>}
+         * @description Array com elementos DOM dos campos (preenchido automaticamente no render)
+         * @readonly
+         */
+        this.fields = [];
+        
+        /**
+         * @type {Array<HTMLElement>}
+         * @description Array com elementos DOM dos botões (preenchido automaticamente no render)
+         * @readonly
+         */
+        this.buttons = [];
+        
+        /**
+         * @type {CriarBtnRodape|null}
+         * @description Instância do sistema de botões (criado automaticamente no render)
+         * @readonly
+         */
+        this.criarBotoes = null;
+        
+        /**
+         * @type {CriarSelects|null}
+         * @description Instância do sistema de selects (criado automaticamente no render se necessário)
+         * @readonly
+         */
+        this.objSelect = null;
         
         // 🎛️ CONFIGURAÇÕES AVANÇADAS
-        this.grupoBotoes = opcoes.grupoBotoes || ['S', 'N', 'S']; // Padrão: Encerrar + CRUD (sem Navegação)
-        this.configSelects = opcoes.selects || null; // Configuração de selects para criação posterior
+        
+        /**
+         * @type {Array<string>}
+         * @description Grupos de botões: ['S'|'N', 'S'|'N', 'S'|'N'] para [Encerrar, Navegação, CRUD]
+         * @example form.grupoBotoes = ['S', 'S', 'S'] // Todos os grupos ativos
+         */
+        this.grupoBotoes = opcoes.grupoBotoes || ['S', 'N', 'S'];
+        
+        /**
+         * @type {Object|null}
+         * @description Configuração de selects: {labels, campos, larguras, arranjo}
+         * @example form.configSelects = {labels: ['Grupo'], campos: ['grupo'], larguras: [20], arranjo: 'H'}
+         */
+        this.configSelects = opcoes.selects || null;
         
         // 🚀 RENDERIZAÇÃO CONDICIONAL 
         // Se todos os parâmetros obrigatórios foram fornecidos → renderiza automaticamente (modo legado)
