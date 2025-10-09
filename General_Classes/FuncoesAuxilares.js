@@ -35,7 +35,7 @@ let eventsCollection = [];
  * @returns {void}
  * @since 1.0.0
  */
-function criarEventos(element, eventType, handler, options = false, eventName = null) {
+function criarListener(element, eventType, handler, options = false, eventName = null) {
     try {
         // Adiciona o event listener normalmente
         element.addEventListener(eventType, handler, options);
@@ -79,7 +79,7 @@ function criarEventos(element, eventType, handler, options = false, eventName = 
  * @returns {number} Quantidade de eventos removidos
  * @since 1.0.0
  */
-function removerEventos(eventName = "Todos") {
+function removerListener(eventName = "Todos") {
     try {
         let removidosCount = 0;
         
@@ -127,7 +127,7 @@ function removerEventos(eventName = "Todos") {
  * @returns {Array<Object>} Lista dos eventos ativos
  * @since 1.0.0
  */
-function listarEventos() {
+function listarListener() {
     console.log(`📋 Eventos ativos (${eventsCollection.length}):`, eventsCollection);
     return eventsCollection;
 }
@@ -311,5 +311,225 @@ function habilitarModoEdicao(form = null) {
     }
 }
 
+// ============= POPULAÇÃO INTELIGENTE DE SELECTS =============
+
+/**
+ * 🔍 DETECTAR TIPO DE FORMULÁRIO
+ * Analisa configSelects e retorna o tipo de formulário
+ */
+function detectarTipoFormulario(configSelects) {
+    if (!configSelects || !configSelects.campos || configSelects.campos.length === 0) {
+        return 'SEM_SELECTS';
+    }
+    
+    const numCampos = configSelects.campos.length;
+    
+    switch(numCampos) {
+        case 0: return 'SEM_SELECTS';        // Formulários sem selects
+        case 1: return '0_FILTROS&1_PESQUISA';        // Formulários que só têm select de pesquisa
+        case 2: return '1_FILTRO&1_PESQUISA';    // Formulários com 1 filtro + 1 pesquisa
+        default: return 'MULTI_FILTROS&PESQUISA';     // Formulários com múltiplos filtros + pesquisa
+    }
+}
+
+/**
+ * 🔄 POPULAÇÃO INTELIGENTE DE SELECTS
+ * Detecta automaticamente o tipo de formulário e aplica a população apropriada
+ * @param {Object} formInstance - Instância do formulário com configSelects
+ */
+async function popularSelectPorConfiguracao(formInstance) {
+    console.log('🔄 Iniciando população inteligente de selects...');
+    
+    try {
+        // 1. Detectar tipo
+        const tipo = detectarTipoFormulario(formInstance.configSelects);
+        console.log(`📋 Tipo detectado: ${tipo}`);
+        
+        // 2. Aplicar população específica
+        switch(tipo) {
+            case 'SEM_SELECTS':
+                // Nenhuma população necessária
+                console.log('📋 Formulário sem selects - nenhuma população necessária');
+                break;
+
+            case '0_FILTROS&1_PESQUISA':
+                // Popula select de pesquisa simples
+                await popularSelect0F_1P(formInstance);
+                break;
+                
+            case '1_FILTRO&1_PESQUISA':
+                await popularSelect1F_1P(formInstance);
+                break;
+
+            case 'MULTI_FILTROS&1_PESQUISA':
+                await popularSelectMultiF_1P(formInstance);
+                break;
+                
+            default:
+                console.warn(`⚠️ Tipo de formulário não reconhecido: ${tipo}`);
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro na população inteligente:', error);
+    }
+}
+
+/**
+ * 🎯 POPULAR SELECT PESQUISA SIMPLES (1 select)
+ */
+async function popularSelect0F_1P(formInstance) {
+    console.log('🎯 Populando select de pesquisa simples (0 filtros + 1 pesquisa)...');
+    
+    try {
+        if (!formInstance.configSelects) {
+            console.warn('⚠️ configSelects não encontrada na instância');
+            return;
+        }
+        
+        // Importa popularSelect do OperacoesCRUD
+        const { popularSelect } = await import('./OperacoesCRUD.js');
+        
+        // Popula única select de pesquisa
+        await popularSelect(formInstance.configSelects);
+        
+        console.log('✅ Select de pesquisa 0F+1P populada com sucesso');
+        
+    } catch (error) {
+        console.error('❌ Erro ao popular select 0F+1P:', error);
+    }
+}
+
+/**
+ * 🔄 POPULAR COM 1 SELECT DE FILTRO 1 DE PESQUISA(2 selects)  
+ */
+async function popularSelect1F_1P(formInstance) {
+    console.log('🔄 Populando selects com 1 filtro + 1 pesquisa...');
+    
+    try {
+        if (!formInstance.configSelects) {
+            console.warn('⚠️ configSelects não encontrada na instância');
+            return;
+        }
+        
+        // Importa popularSelect do OperacoesCRUD
+        const { popularSelect } = await import('./OperacoesCRUD.js');
+        
+        // Popula select de filtro usando configSelects
+        await popularSelect(formInstance.configSelects);
+        
+        console.log('✅ Selects 1F+1P populadas com sucesso');
+        
+    } catch (error) {
+        console.error('❌ Erro ao popular selects 1F+1P:', error);
+    }
+}
+
+/**
+ * 🌟  * 🔄 POPULAR COM MAIS DE 1 SELECT DE FILTRO 1 DE PESQUISA(2 selects) 
+ */
+async function popularSelectMultiF_1P(formInstance) {
+    console.log('🌟 Populando selects com múltiplos filtros...');
+    // TODO: Implementar lógica para formulários com múltiplos filtros
+}
+
 // Exporta as funções para uso em outros módulos
-export { criarEventos, removerEventos, listarEventos, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao };
+export { 
+    criarListener, 
+    removerListener, 
+    listarListener, 
+    habilitarControlesDeFrm, 
+    desabilitarControlesDeFrm, 
+    habilitarModoEdicao,
+    popularSelectPorConfiguracao,
+    detectarTipoFormulario,
+    garbageCollector
+};
+
+//************************************************************
+//                ENCERRAMENTO DE FORMULÁRIO
+//************************************************************
+
+/**
+ * 🗑️ GARBAGE COLLECTOR: Limpa resíduos de formulário da memória
+ * Função orquestradora que chama todas as operações de limpeza necessárias
+ * para evitar vazamentos de memória e conflitos entre formulários
+ * 
+ * @param {Object} formTarget - Instância do formulário a ser descartado
+ */
+function garbageCollector(formTarget) {
+    console.log('🗑️ Iniciando limpeza de memória para formulário...');
+    
+    try {
+        // 1. Remover event listeners do formulário
+        removerListener();
+        console.log('✅ Event listeners removidos');
+        
+        // 2. Limpar window.api_info (resetar estado global preservando funções e constantes)
+        Object.keys(window.api_info).forEach(key => {
+            if (typeof window.api_info[key] !== 'function' && !key.startsWith('const_')) {
+                const tipo = typeof window.api_info[key];
+                
+                switch(tipo) {
+                    case 'string':
+                        window.api_info[key] = "";
+                        break;
+                    case 'number':
+                        window.api_info[key] = 0;
+                        break;
+                    case 'boolean':
+                        window.api_info[key] = false;
+                        break;
+                    case 'object':
+                        if (Array.isArray(window.api_info[key])) {
+                            window.api_info[key] = [];
+                        } else {
+                            window.api_info[key] = {};
+                        }
+                        break;
+                    default:
+                        window.api_info[key] = null;
+                }
+            }
+        });
+        console.log('✅ window.api_info limpo (funções e constantes preservadas, tipos mantidos)');
+        
+        // 3. Limpar DOM específico do formulário (usar formTarget, não document)
+        if (formTarget && formTarget.form) {
+            // Limpa apenas o CONTEÚDO dos containers dinâmicos, preservando elementos estruturais
+            const formElement = formTarget.form;
+            
+            // Limpar container principal onde JS insere os campos
+            const mainConteudo = formElement.querySelector('#mainConteudo');
+            if (mainConteudo) {
+                mainConteudo.innerHTML = '';
+                console.log('✅ Conteúdo de #mainConteudo limpo (elemento preservado)');
+            }
+            
+            // Limpar container onde JS insere selects, filtros, botões
+            const divControles = formElement.querySelector('#divControlesFormulario');
+            if (divControles) {
+                divControles.innerHTML = '';
+                console.log('✅ Conteúdo de #divControlesFormulario limpo (elemento preservado)');
+            }
+            
+            console.log('✅ Conteúdo dinâmico do formulário removido (containers estruturais preservados)');
+        }
+        
+        console.log('✅ Estado do framework resetado');
+        
+        // 4. Limpar cache de dados específico do formulário
+        if (formTarget && formTarget.id) {
+            window.localStorage.removeItem(`formData_${formTarget.id}`);
+            console.log('✅ Cache de dados limpo');
+        }
+        
+        // 5. Descartar referência do objeto formTarget
+        formTarget = null;
+        console.log('✅ Objeto formTarget descartado');
+        
+        console.log('🎉 Limpeza de memória concluída com sucesso');
+        
+    } catch (error) {
+        console.error('❌ Erro durante limpeza de memória:', error);
+    }
+}

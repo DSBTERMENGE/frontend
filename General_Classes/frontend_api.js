@@ -99,27 +99,27 @@ export default class api_fe {
          * @type {string}
          * @example "FinCtl", "Estoque", "CRM"
          */
-        this.aplicacao = app_name;
+        this.const_aplicacao = app_name;
         
         /**
          * Caminho do repositório da aplicação (path completo)
          * @type {string}
          * @example "C:\\Applications_DSB\\FinCtl", "C:\\Applications_DSB\\Estoque"
          */
-        this.application_path = "";
+        this.const_application_path = "";
         
         /**
          * Versão da aplicação (informativo)
          * @type {string}
          * @example "1.0.0", "2.1.3-beta"
          */
-        this.versao = "";
+        this.const_versao = "";
         
         /**
          * Flag para ativar logs detalhados de debug
          * @type {boolean}
          */
-        this.debug = false;
+        this.const_debug = false;
         
         // =====================================
         // 🌐 CONFIGURAÇÕES DE COMUNICAÇÃO
@@ -130,13 +130,13 @@ export default class api_fe {
          * @type {string}
          * @example "http://localhost:5000", "https://api.meusite.com"
          */
-        this.backend_url = backend_url;
+        this.const_backend_url = backend_url;
         
         /**
          * Timeout para requisições HTTP em milissegundos
          * @type {number}
          */
-        this.timeout = 10000; // 10 segundos
+        this.const_timeout = 10000; // 10 segundos
         
         /**
          * Referência ao formulário atualmente ativo no sistema
@@ -149,10 +149,7 @@ export default class api_fe {
          * Headers HTTP padrão para todas as requisições
          * @type {Object}
          */
-        this.headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        };
+        this.const_headers = {};
         
         // =====================================
         // 🗄️ CONFIGURAÇÕES DO BANCO DE DADOS
@@ -163,21 +160,21 @@ export default class api_fe {
          * @type {string}
          * @example "financas.db", "estoque.db"
          */
-        this.database_name = "";
+        this.const_database_name = "";
         
         /**
          * Caminho completo para o diretório do banco de dados
          * @type {string}
          * @example "c:\\apps\\backend\\database", "/home/user/db"
          */
-        this.database_path = "";
+        this.const_database_path = "";
         
         /**
          * Host do servidor de banco (para bancos remotos)
          * @type {string}
          * @example "localhost", "192.168.1.100"
          */
-        this.database_host = "";
+        this.const_database_host = "";
         
         // =====================================
         // 📋 CONFIGURAÇÕES DE DADOS
@@ -214,6 +211,13 @@ export default class api_fe {
          * CONVENÇÃO OBRIGATÓRIA: Os nomes dos elementos HTML devem ser idênticos aos nomes das colunas da view.
          * Exemplo: Se a view tem coluna 'grupo', o HTML deve ter <input name="grupo"> ou <input id="grupo">
          * 
+         * @type {Array<string>}
+         * @example ["Todos"] para todos os campos ou ["grupo", "descricao"] para específicos
+         * @usage Usado em: popularform(), buscar_todos(), consultas gerais
+         * @convention HTML elements name/id = view column name (required for auto-population)
+         */
+        /**
+         * Array com nomes dos campos que vão para o formulário, se usar 'Todos" todos os campos da view serão retornados
          * @type {Array<string>}
          * @example ["Todos"] para todos os campos ou ["grupo", "descricao"] para específicos
          * @usage Usado em: popularform(), buscar_todos(), consultas gerais
@@ -292,7 +296,7 @@ export default class api_fe {
             }
             
             // Faz requisição direta para o endpoint /consultar_dados_db
-            const url = `${this.backend_url}/consultar_dados_db`;
+            const url = `${this.const_backend_url}/consultar_dados_db`;
             
             // Validar filtro antes de enviar - se contém *, enviar vazio
             const filtros = this.filtros.includes(' = *') ? '' : this.filtros;
@@ -300,9 +304,9 @@ export default class api_fe {
             const payload = {
                 view: the_view,
                 campos: this.campos || ["Todos"],
-                database_path: this.database_path || "",
-                database_name: this.database_name || "",
-                application_path: this.application_path,
+                database_path: this.const_database_path || "",
+                database_name: this.const_database_name || "",
+                application_path: this.const_application_path,
                 filtros: filtros
             };
 
@@ -310,7 +314,7 @@ export default class api_fe {
 
             const response = await fetch(url, {
                 method: 'POST',
-                headers: this.headers,
+                headers: this.const_headers,
                 body: JSON.stringify(payload)
             });
             
@@ -366,7 +370,7 @@ export default class api_fe {
             
             const response = await fetch(url, {
                 method: 'POST',
-                headers: this.headers,
+                headers: this.const_headers,
                 body: JSON.stringify(payload)
             });
             
@@ -422,7 +426,7 @@ export default class api_fe {
             
             const response = await fetch(url, {
                 method: 'POST',
-                headers: this.headers,
+                headers: this.const_headers,
                 body: JSON.stringify(payload)
             });
             
@@ -581,7 +585,7 @@ export default class api_fe {
             
             const config = {
                 method: 'POST',
-                headers: this.headers,
+                headers: this.const_headers,
                 body: JSON.stringify(payload)
             };
             
@@ -832,7 +836,7 @@ export default class api_fe {
         try {
             const response = await fetch(`${this.backend_url}/health`, {
                 method: 'GET',
-                headers: this.headers
+                headers: this.const_headers
             });
             
             if (response.ok) {

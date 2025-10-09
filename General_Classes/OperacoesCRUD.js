@@ -21,7 +21,7 @@ FLUXO DE EXECUÇÃO:
 // Importando funções de debugging (primeiro para seguir critério)
 import { flow_marker, error_catcher } from './Debugger.js';
 // Importando funções de gerenciamento de eventos e controles
-import { removerEventos, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao } from './FuncoesAuxilares.js';
+import { removerListener, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao, garbageCollector } from './FuncoesAuxilares.js';
 
 
 /**
@@ -233,12 +233,20 @@ function processarEncerrar(instancia, dados) {
             
 
         } else {
-            // Remove listeners específicos do formulário
+            // FORMULÁRIOS NORMAIS - Limpeza completa
+            
+            // 1. Remove listeners específicos do formulário
             if (instancia && instancia.objSelect) {
                 instancia.objSelect.removerEventListeners();
             }
-            // Remove todos os eventos gerenciados pela coleção
-            removerEventos();
+            
+            // 2. Remove todos os eventos gerenciados pela coleção
+            removerListener();
+            
+            // 3. Executa limpeza completa de memória (garbage collection)
+            garbageCollector(instancia);
+            
+            // 4. Oculta o formulário (após limpeza)
             instancia.ocultar();
         }
     } catch (error) {
@@ -1475,18 +1483,34 @@ async function popularSelectComDados(nomeSelect, dados, config = null) {
 async function popularSelect(configSelects) {
     try {
         // ✅ Validações básicas
-        if (!window.api_info?.view_Select) {
-            console.error('❌ view_Select não configurada no api_info');
-            return;
-        }
-        
         if (!configSelects?.campos?.[0]) {
             console.error('❌ configSelects inválido ou vazio');
             return;
         }
         
-        // ✅ DADOS PARA POPULAR SELECT(usando a mesma função que popula o formulário)
-        const resultado = await window.api_info.consulta_dados_form(window.api_info.view_Select);
+        // 🎯 DETECÇÃO AUTOMÁTICA DO TIPO DE SELECT BASEADA NA QUANTIDADE DE CAMPOS
+        // Por padrão, se campos só tem um elemento, este elemento é de pesquisa 
+        // e é preenchido com todos os registros da view principal do formulário (window.api_info.view)
+        // Se há múltiplos campos, são selects de filtro e pesquisa, usando view_Select para filtros
+        let viewParaPopular;
+        if (configSelects.campos.length === 1) {
+            // SELECT DE PESQUISA: usa a mesma view do formulário
+            viewParaPopular = window.api_info.view;
+            console.log('📋 Detectado: Select de pesquisa simples - usando view principal do formulário');
+        } else {
+            // SELECTS DE FILTRO: usa view específica para filtros
+            viewParaPopular = window.api_info.view_Select;
+            console.log('📋 Detectado: Selects com filtros - usando view_Select para filtros');
+        }
+        
+        // ✅ Validação da view determinada
+        if (!viewParaPopular) {
+            console.error(`❌ View não configurada: ${configSelects.campos.length === 1 ? 'window.api_info.view' : 'window.api_info.view_Select'}`);
+            return;
+        }
+        
+        // ✅ DADOS PARA POPULAR SELECT (usando a mesma função que popula o formulário)
+        const resultado = await window.api_info.consulta_dados_form(viewParaPopular);
         
         if (resultado.mensagem === "sucesso") {
             // ✅ Dados já estão no configSelects - não há duplicidade
