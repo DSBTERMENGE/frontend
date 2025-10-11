@@ -1,15 +1,14 @@
 /**
- * Nova classe GridDados que herda de FormularioBase
+ * Classe GridDados - Sistema independente de exibição de dados tabulares
  * Sistema avançado de exibição de dados tabulares
  * + Sistema avançado de cálculos estatísticos
  * + Integração com CriarBtnRodape
  * + Formatação e alinhamento avançados
  */
 
-import { FormularioBase } from './ConstrutorDeFormularioBase.js';
 import { CriarBtnRodape } from './ConstrutorBtnRodapeForms.js';
 
-export class GridDados extends FormularioBase {
+export class GridDados {
     /**
      * Construtor da classe GridDados - Sistema avançado de exibição de dados tabulares
      * 
@@ -36,7 +35,6 @@ export class GridDados extends FormularioBase {
      * @param {number} posicaoCanvas.y - Posição vertical em vh
      * 
      * @param {Object} [opcoes={}] - Configurações avançadas opcionais
-     * @param {boolean} [opcoes.edicaoDeDados=false] - Permite edição inline das células
      * @param {Array<string>} [opcoes.configResultados=null] - Config. analytics no footer
      * @param {Array<string>} [opcoes.grupoBotoes] - Botões personalizados no footer
      * 
@@ -72,8 +70,6 @@ export class GridDados extends FormularioBase {
      * myRelatorio.setDados(dados);
      */
     constructor() {
-        super('', {x: 3, y: 5}, 'tabela');
-        
         // ===== PROPRIEDADES PRINCIPAIS (definidas após instanciação) =====
         /** @type {string} Título principal exibido no header da tabela */
         this.titulo = '';
@@ -116,9 +112,6 @@ export class GridDados extends FormularioBase {
         this.configFooter = 'simples';
         
         // ===== CONFIGURAÇÕES AVANÇADAS =====
-        /** @type {boolean} Permite edição inline das células */
-        this.edicaoDeDados = false;
-        
         /** @type {Array<string>|null} Config. analytics no footer (Tot, Med, Max, etc.) */
         this.configResultados = null;
         
@@ -129,9 +122,72 @@ export class GridDados extends FormularioBase {
         /** @type {CriarBtnRodape|null} Objeto de botões personalizados */
         this.objBotoes = null;
         
+        // ===== PROPRIEDADES DE CONTROLE DE UI (independentes do FormularioBase) =====
+        /** @type {Array<number>} Posição da tabela no canvas [x, y] em vw/vh. [] = centralizado automático */
+        this.posicao = [];
+        
+        /** @type {HTMLElement|null} Referência ao container HTML da tabela (#divTabela) */
+        this.container = null;
+        
+        /** @type {string} Tipo de tabela para escolher gerador HTML apropriado */
+        this.tipoTabela = 'simples';
+        
         // ===== INICIALIZAÇÃO =====
         // Não executa validação nem renderização automática
         // Propriedades devem ser definidas manualmente antes do uso
+    }
+
+    // ===== MÉTODOS BÁSICOS DE UI (substituem funcionalidades do FormularioBase) =====
+    
+    /**
+     * Conecta ao container HTML existente (#divTabela)
+     * Substitui a dependência do this.form do FormularioBase
+     * @returns {HTMLElement} Referência ao container conectado
+     * @throws {Error} Se container não for encontrado no DOM
+     */
+    _conectarContainer() {
+        this.container = document.getElementById('divTabela');
+        
+        if (!this.container) {
+            throw new Error('Container #divTabela não encontrado no DOM. Verifique se o HTML possui este elemento.');
+        }
+        
+        return this.container;
+    }
+
+    /**
+     * Posiciona a tabela no canvas usando this.posicao
+     * Suporte a coordenadas [x, y] em vw/vh ou centralização automática []
+     * @example
+     * // Posição customizada
+     * this.posicao = [10, 15]; // 10vw da esquerda, 15vh do topo
+     * this._posicionarTabela();
+     * 
+     * // Centralização automática
+     * this.posicao = []; // Array vazio = centralizado
+     * this._posicionarTabela();
+     */
+    _posicionarTabela() {
+        if (!this.container) {
+            this._conectarContainer();
+        }
+        
+        if (this.posicao.length === 0) {
+            // Centralização automática no divCorpo
+            this.container.style.position = 'absolute';
+            this.container.style.left = '50%';
+            this.container.style.top = '50%';
+            this.container.style.transform = 'translate(-50%, -50%)';
+            this.container.style.zIndex = '100'; // Garante que fique sobre outros elementos
+        } else {
+            // Posicionamento customizado [x, y] em vw/vh
+            const [x, y] = this.posicao;
+            this.container.style.position = 'absolute';
+            this.container.style.left = `${x}vw`;
+            this.container.style.top = `${y}vh`;
+            this.container.style.transform = 'none';
+            this.container.style.zIndex = '100';
+        }
     }
 
     /**
@@ -155,8 +211,10 @@ export class GridDados extends FormularioBase {
         return this._colunasComOperacao || [];
     }
 
-    /**
-     * Validação robusta de consistência entre propriedades correlacionadas
+    /*
+    ======================================================================
+     *                 VALIDAÇÕES INTERNAS DE PROPRIEDADES E OUTROS
+    *======================================================================
      */
     _validarPropriedades() {
         // ===== VALIDAÇÃO GRUPO 1: PROPRIEDADES PRINCIPAIS (baseadas em cabecalho) =====
@@ -247,6 +305,7 @@ export class GridDados extends FormularioBase {
 
     /**
      * Define os dados da tabela com validação
+     * @param {Array<Object>} dados - Array de objetos com dados da tabela
      */
     setDados(dados) {
         if (!Array.isArray(dados)) {
@@ -257,13 +316,14 @@ export class GridDados extends FormularioBase {
         this.calcularAlturaMaxima();
         
         // ✅ CONSTRÓI A TABELA automaticamente quando dados são definidos
-        if (dados.length > 0 && this.form && this.form.querySelector('#mainTabela')) {
+        if (dados.length > 0 && this.cabecalho.length > 0) {
             this.construirTabela();
         }
     }
 
     /**
      * Popula a tabela com novos dados e reconstrói (usado pelo sistema de cascata)
+     * @param {Array<Object>} dadosArray - Array de dados para popular a tabela
      */
     popularTabela(dadosArray) {
         // Mapeia os dados para o formato correto se necessário
@@ -281,8 +341,8 @@ export class GridDados extends FormularioBase {
         
         this.setDados(dadosFormatados);
         
-        // Reconstrói a tabela se já estiver renderizada
-        if (this.form && this.form.querySelector('#mainTabela')) {
+        // Reconstrói a tabela se já estiver configurada
+        if (this.cabecalho.length > 0 && this.dados.length > 0) {
             this.construirTabela();
         }
     }
@@ -462,31 +522,10 @@ export class GridDados extends FormularioBase {
     }
 
     /**
-     * Configura event listeners para edição (se habilitada)
-     */
-    _configurarEdicao() {
-        if (!this.form) return;
-        
-        const celulasEditaveis = this.form.querySelectorAll('td[contenteditable="true"]');
-        celulasEditaveis.forEach((celula, index) => {
-            celula.addEventListener('blur', () => {
-                // Atualiza dados quando célula perde foco
-                const linha = Math.floor(index / this.cabecalho.length);
-                const coluna = index % this.cabecalho.length;
-                const nomeColuna = this.cabecalho[coluna];
-                
-                if (this.dados[linha]) {
-                    this.dados[linha][nomeColuna] = celula.textContent;
-                }
-            });
-        });
-    }
-
-    /**
      * Configura o sistema de eventos em cascata (Estado → Cidade → Tabela)
      */
     _configurarEventosCascata() {
-        const divControles = this.form.querySelector('#divControlesTabela');
+        const divControles = this.container.querySelector('#divControlesTabela');
         if (!divControles) return;
         
         // Remove listener anterior para evitar duplicação
@@ -512,91 +551,6 @@ export class GridDados extends FormularioBase {
     /**
      * Popula a select de cidade baseada no estado selecionado
      */
-    _popularCidadesPorEstado(estado) {
-        if (!estado || !this.objSelect) return;
-        
-        // Dados simulados de cidades por estado
-        const cidadesPorEstado = {
-            'SP': ['São Paulo', 'Campinas', 'Santos', 'Ribeirão Preto'],
-            'RJ': ['Rio de Janeiro', 'Niterói', 'Petrópolis', 'Nova Friburgo'],
-            'MG': ['Belo Horizonte', 'Uberlândia', 'Contagem', 'Juiz de Fora'],
-            'RS': ['Porto Alegre', 'Caxias do Sul', 'Pelotas', 'Santa Maria'],
-            'BA': ['Salvador', 'Feira de Santana', 'Vitória da Conquista', 'Camaçari'],
-            'PR': ['Curitiba', 'Londrina', 'Maringá', 'Ponta Grossa'],
-            'SC': ['Florianópolis', 'Joinville', 'Blumenau', 'São José'],
-            'GO': ['Goiânia', 'Aparecida de Goiânia', 'Anápolis', 'Rio Verde'],
-            'PE': ['Recife', 'Jaboatão', 'Olinda', 'Caruaru'],
-            'CE': ['Fortaleza', 'Caucaia', 'Juazeiro do Norte', 'Maracanaú']
-        };
-        
-        const cidades = cidadesPorEstado[estado] || [];
-        
-        // Formata dados para a select
-        const dadosSelect = [
-            { value: '', text: 'Selecione uma Cidade' },
-            { value: 'Todas', text: 'Todas' },
-            ...cidades.map(cidade => ({ value: cidade, text: cidade }))
-        ];
-        
-        // Popula a segunda select (cidade)
-        this.objSelect.popularSelect('cidade', dadosSelect);
-        
-        console.log(`🏙️ Populadas ${cidades.length} cidades para ${estado}`);
-    }
-
-    /**
-     * Popula a tabela baseada na cidade selecionada
-     */
-    _popularTabelaPorCidade(cidade, estado) {
-        if (!cidade || !estado) {
-            // Limpa a tabela se não há seleção válida
-            this.setDados([]);
-            return;
-        }
-        
-        // Dados simulados de estudantes
-        const estudantesPorCidade = {
-            'São Paulo': [
-                { Nome: 'Ana Souza', Estado: 'SP', Cidade: 'São Paulo', Curso: 'Engenharia' },
-                { Nome: 'Daniel Alves', Estado: 'SP', Cidade: 'São Paulo', Curso: 'Arquitetura' },
-                { Nome: 'Carlos Silva', Estado: 'SP', Cidade: 'São Paulo', Curso: 'Medicina' }
-            ],
-            'Campinas': [
-                { Nome: 'Maria Santos', Estado: 'SP', Cidade: 'Campinas', Curso: 'Computação' },
-                { Nome: 'João Costa', Estado: 'SP', Cidade: 'Campinas', Curso: 'Administração' }
-            ],
-            'Santos': [
-                { Nome: 'Pedro Lima', Estado: 'SP', Cidade: 'Santos', Curso: 'Direito' }
-            ],
-            'Rio de Janeiro': [
-                { Nome: 'Lucia Pereira', Estado: 'RJ', Cidade: 'Rio de Janeiro', Curso: 'Design' },
-                { Nome: 'Roberto Silva', Estado: 'RJ', Cidade: 'Rio de Janeiro', Curso: 'Jornalismo' }
-            ],
-            'Belo Horizonte': [
-                { Nome: 'Fernanda Costa', Estado: 'MG', Cidade: 'Belo Horizonte', Curso: 'Psicologia' }
-            ]
-        };
-        
-        let dadosTabela = [];
-        
-        if (cidade === 'Todas') {
-            // Se selecionou "Todas", mostra dados de todas as cidades do estado
-            Object.keys(estudantesPorCidade).forEach(key => {
-                const estudantes = estudantesPorCidade[key];
-                if (estudantes.length > 0 && estudantes[0].Estado === estado) {
-                    dadosTabela = dadosTabela.concat(estudantes);
-                }
-            });
-        } else {
-            // Mostra dados da cidade específica
-            dadosTabela = estudantesPorCidade[cidade] || [];
-        }
-        
-        // Popula a tabela
-        this.popularTabela(dadosTabela);
-        
-        console.log(`📊 Populada tabela com ${dadosTabela.length} estudantes de ${cidade}, ${estado}`);
-    }
 
     /**
      * Configurar botões no divRodape (conforme arquitetura acordada)
@@ -626,44 +580,17 @@ export class GridDados extends FormularioBase {
      * @param {string} tipo - Tipo da mensagem: 'info', 'success', 'warning', 'error'
      */
     exibirMensagem(mensagem, tipo = 'info') {
-        const divMensagem = this.form?.querySelector('#divMensagemTabela');
-        const labelMensagem = this.form?.querySelector('#labelMensagem');
-        
-        if (!divMensagem || !labelMensagem) return;
-        
-        // Trunca a mensagem se for muito longa
-        const mensagemTruncada = mensagem.length > 150 ? 
-            mensagem.substring(0, 147) + '...' : mensagem;
-        
-        // Define cores baseadas no tipo
-        const cores = {
-            info: { bg: '#d1ecf1', border: '#bee5eb', text: '#0c5460' },
-            success: { bg: '#d4edda', border: '#c3e6cb', text: '#155724' },
-            warning: { bg: '#fff3cd', border: '#ffeaa7', text: '#856404' },
-            error: { bg: '#f8d7da', border: '#f5c6cb', text: '#721c24' }
-        };
-        
-        const cor = cores[tipo] || cores.info;
-        
-        // Aplica a mensagem e estilo
-        labelMensagem.textContent = mensagemTruncada;
-        divMensagem.style.display = 'block';
-        divMensagem.style.backgroundColor = cor.bg;
-        divMensagem.style.borderTopColor = cor.border;
-        labelMensagem.style.color = cor.text;
+        // Sistema simplificado - exibe no console por enquanto
+        // TODO: Implementar sistema de mensagens visual quando necessário
+        console.log(`[${tipo.toUpperCase()}] ${mensagem}`);
     }
     
     /**
      * Oculta a mensagem do footer (volta altura 0)
      */
     ocultarMensagem() {
-        const divMensagem = this.form?.querySelector('#divMensagemTabela');
-        const labelMensagem = this.form?.querySelector('#labelMensagem');
-        
-        if (divMensagem && labelMensagem) {
-            divMensagem.style.display = 'none';
-            labelMensagem.textContent = '';
-        }
+        // Sistema simplificado - apenas avisa no console
+        console.log('[INFO] Mensagem ocultada');
     }
     
     /**
@@ -689,17 +616,17 @@ export class GridDados extends FormularioBase {
     }
 
     /**
-     * Limpa todo o conteúdo da tabela (REAPROVEITADO!)
+     * Limpa todo o conteúdo da tabela
      */
     _limparConteudo() {
-        if (!this.form) return;
+        if (!this.container) return;
         
         // Limpa área de controles
-        const controlesEl = this.form.querySelector('#divControlesTabela');
+        const controlesEl = this.container.querySelector('#divControlesTabela');
         if (controlesEl) controlesEl.innerHTML = '';
 
         // Limpa a tabela principal
-        const mainTabelaEl = this.form.querySelector('#mainTabela');
+        const mainTabelaEl = this.container.querySelector('#mainTabela');
         if (mainTabelaEl) mainTabelaEl.innerHTML = '';
 
         // Limpa mensagens do footer
@@ -729,90 +656,27 @@ export class GridDados extends FormularioBase {
         // Footer tem sistema de mensagens
     }
 
-    /**
-     * Construção principal da tabela (método essencial)
+    /*
+    *===============================================================
+        *                 CONSTRUÇÃO E POPULAÇÃO DA TABELA
+    * ===============================================================
      */
     construirTabela() {
-        const mainTabelaEl = this.form?.querySelector('#mainTabela');
-        if (!mainTabelaEl) return;
-
-        // ✅ CORREÇÃO COMPLETA: VW (horizontal) + VH (vertical) + REM (spacing/font)
-        // As larguras já vêm em vw do construtor - mantém responsividade horizontal
-        const larguras = [...this.larguraColunas];
-        const somaLargVW = larguras.reduce((a, b) => a + b, 0);
-        const larguraTotalVW = Math.max(somaLargVW, 30); // Mínimo 30vw
-
-        // Gera header
-        let thead = '<thead><tr>';
-        this.cabecalho.forEach((titulo, index) => {
-            const alinhamento = this._alinhamentoCSS(this.alinhamento[index]);
-            const larguraVW = larguras[index]; // Mantém em vw (horizontal)
-            
-            thead += `<th style="
-                width: ${larguraVW}vw;
-                text-align: ${alinhamento};
-                background-color: #003366;
-                color: white;
-                font-weight: bold;
-                padding: 0.5rem;
-                border: 0.0625rem solid #ddd;
-                box-sizing: border-box;
-                font-size: 0.875rem;
-                line-height: 1.2;
-            ">${titulo}</th>`;
-        });
-        thead += '</tr></thead>';
-
-        // Gera corpo da tabela
-        let tbody = '<tbody>';
-        this.dados.forEach((linha) => {
-            tbody += '<tr>';
-            this.cabecalho.forEach((coluna, index) => {
-                const valor = linha[coluna];
-                const formato = this.formato[index];
-                const alinhamento = this._alinhamentoCSS(this.alinhamento[index]);
-                const larguraVW = larguras[index]; // Mantém em vw (horizontal)
-                const conteudo = this._formatarCelula(valor, formato);
-                
-                const contenteditable = this.edicaoDeDados ? 'contenteditable="true"' : '';
-                
-                tbody += `<td style="
-                    width: ${larguraVW}vw;
-                    text-align: ${alinhamento};
-                    padding: 0.5rem;
-                    border: 0.0625rem solid #ddd;
-                    box-sizing: border-box;
-                    font-size: 0.875rem;
-                    line-height: 1.4;
-                    min-height: 2.5rem;
-                " ${contenteditable}>${conteudo}</td>`;
-            });
-            tbody += '</tr>';
-        });
-        tbody += '</tbody>';
-
-        // Gera footer (se configurado)
-        const tfoot = this._gerarLinhaResultados();
-
-        // Monta tabela completa com medidas responsivas adequadas
-        mainTabelaEl.innerHTML = `
-            <table style="
-                width: ${larguraTotalVW}vw;
-                border-collapse: collapse;
-                margin: 0;
-                font-size: 0.875rem;
-                table-layout: fixed;
-                border: 0.125rem solid #003366;
-            ">
-                ${thead}
-                ${tbody}
-                ${tfoot}
-            </table>
-        `;
-
-        // Configura edição se habilitada
-        if (this.edicaoDeDados) {
-            this._configurarEdicao();
+        // Conecta ao container (#divTabela) se ainda não conectado
+        this._conectarContainer();
+        
+        // Gera HTML completo com controle de overflow
+        const htmlCompleto = this._gerarTabelaCompleta();
+        
+        // Insere no container
+        this.container.innerHTML = htmlCompleto;
+        
+        // Remove classe hidden para mostrar tabela
+        this.container.classList.remove('hidden');
+        
+        // Aplica posicionamento se configurado
+        if (this.posicao.length > 0 || this.posicao.length === 0) {
+            this._posicionarTabela();
         }
     }
 
@@ -834,9 +698,9 @@ export class GridDados extends FormularioBase {
         const alturaTotal = (alturaHeaderRem + (this.dados.length * alturaLinhaRem) + alturaFooterRem + margemExtraRem) * fatorConversao;
         const alturaMaxVH = Math.min(alturaTotal, 80); // Máximo 80vh
         
-        if (this.form) {
-            this.form.style.height = `${alturaMaxVH}vh`;
-            this.form.style.minHeight = `25vh`; // Altura mínima em vh
+        if (this.container) {
+            this.container.style.height = `${alturaMaxVH}vh`;
+            this.container.style.minHeight = `25vh`; // Altura mínima em vh
         }
     }
 
@@ -844,27 +708,198 @@ export class GridDados extends FormularioBase {
      * Método estático para criação simplificada (MELHORADO!)
      */
     static criar(titulo, descricao, cabecalho, larguraColunas, alinhamento, formato, dados = [], posicaoCanvas = {x: 3, y: 5}, opcoes = {}) {
-        const tabela = new CriarTabelas(
-            titulo, descricao, cabecalho, larguraColunas, 
-            alinhamento, formato, posicaoCanvas, opcoes
-        );
+        const tabela = new GridDados();
+        
+        // Configura propriedades
+        tabela.titulo = titulo;
+        tabela.descricao = descricao;
+        tabela.cabecalho = cabecalho;
+        tabela.larguraColunas = larguraColunas;
+        tabela.alinhamento = alinhamento;
+        tabela.formato = formato;
+        tabela.posicao = [posicaoCanvas.x, posicaoCanvas.y];
         
         if (dados.length > 0) {
             tabela.setDados(dados);
         }
         
-        tabela.render();
+        tabela.construirTabela();
         
         return tabela;
     }
 
     /**
-     * Método estático para fechar qualquer tabela ativa (COMPATIBILIDADE!)
+     * Cria header visual da tabela com título e descrição
+     * Diferente do <thead> - este é o cabeçalho visual acima da tabela
+     * Usa this.titulo e this.descricao
+     * @returns {string} HTML do header visual
      */
-    static fecharTabela() {
-        const divFormTabela = document.getElementById('divFormTabela');
-        if (divFormTabela) {
-            divFormTabela.classList.add('hidden');
+    _criarHeaderTabela() {
+        if (!this.titulo && !this.descricao) {
+            return ''; // Sem header se não há título nem descrição
         }
+        
+        let header = '<div class="tabela-header" style="margin-bottom: 1rem; text-align: center;">';
+        
+        if (this.titulo) {
+            header += `<h2 style="margin: 0 0 0.5rem 0; color: #003366; font-size: 1.25rem; font-weight: bold;">${this.titulo}</h2>`;
+        }
+        
+        if (this.descricao) {
+            header += `<p style="margin: 0; color: #666; font-size: 0.875rem; font-style: italic;">${this.descricao}</p>`;
+        }
+        
+        header += '</div>';
+        return header;
+    }
+
+    /*
+    *===============================================================
+    *                            GERADORES DE HTML
+    *===============================================================
+     */
+    
+    /**
+     * Calcula a largura total da tabela em vw
+     * @returns {number} Largura total em vw (mínimo 30vw)
+     */
+    _calcularLarguraTotal() {
+        const somaLargVW = this.larguraColunas.reduce((a, b) => a + b, 0);
+        return Math.max(somaLargVW, 30); // Mínimo 30vw
+    }
+    
+    /**
+     * Gera HTML do header da tabela (<thead>)
+     * Usa this.cabecalho, this.larguraColunas, this.alinhamento
+     * @returns {string} HTML do thead completo
+     */
+    _gerarHTMLHeader() {
+        let thead = '<thead><tr>';
+        
+        this.cabecalho.forEach((titulo, index) => {
+            const alinhamento = this._alinhamentoCSS(this.alinhamento[index]);
+            const larguraVW = this.larguraColunas[index];
+            
+            thead += `<th style="
+                width: ${larguraVW}vw;
+                text-align: ${alinhamento};
+                background-color: #003366;
+                color: white;
+                font-weight: bold;
+                padding: 0.5rem;
+                border: 0.0625rem solid #ddd;
+                box-sizing: border-box;
+                font-size: 0.875rem;
+                line-height: 1.2;
+            ">${titulo}</th>`;
+        });
+        
+        return thead + '</tr></thead>';
+    }
+    
+    /**
+     * Gera HTML do body da tabela (<tbody>)
+     * Usa this.dados, this.cabecalho, this.formato, this.alinhamento
+     * @returns {string} HTML do tbody completo
+     */
+    _gerarHTMLBody() {
+        let tbody = '<tbody>';
+        
+        this.dados.forEach((linha) => {
+            tbody += '<tr>';
+            
+            this.cabecalho.forEach((coluna, index) => {
+                const valor = linha[coluna];
+                const formato = this.formato[index];
+                const alinhamento = this._alinhamentoCSS(this.alinhamento[index]);
+                const larguraVW = this.larguraColunas[index];
+                const conteudo = this._formatarCelula(valor, formato);
+                
+                tbody += `<td style="
+                    width: ${larguraVW}vw;
+                    text-align: ${alinhamento};
+                    padding: 0.5rem;
+                    border: 0.0625rem solid #ddd;
+                    box-sizing: border-box;
+                    font-size: 0.875rem;
+                    line-height: 1.4;
+                    min-height: 2.5rem;
+                ">${conteudo}</td>`;
+            });
+            
+            tbody += '</tr>';
+        });
+        
+        return tbody + '</tbody>';
+    }
+    
+    /**
+     * Calcula limites máximos para evitar overflow no canvas
+     * @returns {Object} {maxWidth, maxHeight} em vw/vh
+     */
+    _calcularLimitesCanvas() {
+        const larguraTotalVW = this._calcularLarguraTotal();
+        const maxWidth = Math.min(larguraTotalVW, 95); // Max 95vw do viewport
+        const maxHeight = 80; // Max 80vh do viewport
+        
+        return { maxWidth, maxHeight };
+    }
+    
+    /**
+     * Cria container com controle de overflow para qualquer conteúdo de tabela
+     * Evita overflow no canvas, coloca scroll na tabela
+     * @param {string} conteudoTabela - HTML da tabela completa
+     * @returns {string} HTML do container com overflow controlado
+     */
+    _criarContainerComOverflow(conteudoTabela) {
+        const { maxWidth, maxHeight } = this._calcularLimitesCanvas();
+        
+        return `
+            <div class="tabela-wrapper" style="
+                max-width: ${maxWidth}vw;
+                max-height: ${maxHeight}vh;
+                overflow: auto;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                box-sizing: border-box;
+                padding: 0.5rem;
+                background-color: #fff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ">
+                ${conteudoTabela}
+            </div>
+        `;
+    }
+    
+    /**
+     * Gera tabela completa com header visual, tabela e controle de overflow
+     * @returns {string} HTML completo da tabela com container
+     */
+    _gerarTabelaCompleta() {
+        const headerVisual = this._criarHeaderTabela();
+        const thead = this._gerarHTMLHeader();
+        const tbody = this._gerarHTMLBody();
+        const tfoot = this._gerarLinhaResultados();
+        
+        // Calcula largura da tabela (pode exceder viewport)
+        const larguraTotalVW = this._calcularLarguraTotal();
+        
+        const conteudoTabela = `
+            ${headerVisual}
+            <table style="
+                width: ${larguraTotalVW}vw;
+                border-collapse: collapse;
+                margin: 0;
+                font-size: 0.875rem;
+                table-layout: fixed;
+                border: 0.125rem solid #003366;
+            ">
+                ${thead}
+                ${tbody}
+                ${tfoot}
+            </table>
+        `;
+        
+        return this._criarContainerComOverflow(conteudoTabela);
     }
 }
