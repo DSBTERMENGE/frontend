@@ -1,103 +1,228 @@
 /**
- * Nova classe CriarTabelas que herda de FormularioBase
- * Reaproveita TODAS as funcionalidades do sistema antigo ConstrutorDeTabelas.js
+ * Nova classe GridDados que herda de FormularioBase
+ * Sistema avançado de exibição de dados tabulares
  * + Sistema avançado de cálculos estatísticos
- * + Integração com CriarSelects e CriarBtnRodape
+ * + Integração com CriarBtnRodape
  * + Formatação e alinhamento avançados
  */
 
 import { FormularioBase } from './ConstrutorDeFormularioBase.js';
-import { CriarSelects } from './ConstrutorDeSelects.js';
 import { CriarBtnRodape } from './ConstrutorBtnRodapeForms.js';
 
-export class CriarTabelas extends FormularioBase {
+export class GridDados extends FormularioBase {
     /**
-     * @param {string} titulo - Título principal da tabela
-     * @param {string} descricao - Descrição da tabela
-     * @param {Array<string>} cabecalho - Lista de títulos das colunas
-     * @param {Array<number>} larguraColunas - Larguras em vw (viewport width)
-     * @param {Array<string>} alinhamento - Lista de alinhamentos ('E', 'C', 'D')
-     * @param {Array<string>} formato - Lista de formatos ('T', 'M', '%', 'D')
-     * @param {Object} posicaoCanvas - Posição {x, y} em vw/vh
-     * @param {Object} opcoes - Opções avançadas
+     * Construtor da classe GridDados - Sistema avançado de exibição de dados tabulares
+     * 
+     * @description Cria uma tabela interativa com analytics, formatação automática e controles
+     * @usage const myRelatorio = new GridDados(titulo, descricao, cabecalho, larguras, alinhamentos, formatos, posicao, opcoes);
+     * 
+     * @param {string} titulo - Título principal exibido no header da tabela
+     * @param {string} descricao - Descrição/subtítulo da tabela (opcional, pode ser '')
+     * 
+     * @param {Array<string>} cabecalho - Nomes das colunas da tabela
+     * @example ['Descrição', 'Valor', 'Data', 'Status']
+     * 
+     * @param {Array<number>} larguraColunas - Larguras das colunas em vw (viewport width)
+     * @example [40, 20, 25, 15] // = 100vw total
+     * 
+     * @param {Array<string>} alinhamento - Alinhamento de cada coluna
+     * @example ['E', 'D', 'C', 'C'] // E=Esquerda, C=Centro, D=Direita
+     * 
+     * @param {Array<string>} formato - Formato de exibição de cada coluna
+     * @example ['T', 'M', 'D', 'T'] // T=Texto, M=Moeda, D=Data, %=Porcentagem
+     * 
+     * @param {Object} [posicaoCanvas={x: 3, y: 5}] - Posição da tabela no canvas
+     * @param {number} posicaoCanvas.x - Posição horizontal em vw
+     * @param {number} posicaoCanvas.y - Posição vertical em vh
+     * 
+     * @param {Object} [opcoes={}] - Configurações avançadas opcionais
+     * @param {boolean} [opcoes.edicaoDeDados=false] - Permite edição inline das células
+     * @param {Array<string>} [opcoes.configResultados=null] - Config. analytics no footer
+     * @param {Array<string>} [opcoes.grupoBotoes] - Botões personalizados no footer
+     * 
+     * @example
+     * // Relatório financeiro simples
+     * const myRelatorio = new GridDados(
+     *     'Despesas Mensais',
+     *     'Relatório de outubro/2025',
+     *     ['Descrição', 'Valor', 'Vencimento'],
+     *     [50, 30, 20],
+     *     ['E', 'D', 'C'],
+     *     ['T', 'M', 'D']
+     * );
+     * 
+    /**
+     * Construtor da classe GridDados - Sistema avançado de exibição de dados tabulares
+     * 
+     * @description Cria uma instância vazia. Todas as propriedades devem ser definidas após instanciação.
+     * @usage const myObj = new GridDados(); // Depois definir propriedades manualmente
+     * 
+     * @example
+     * // Padrão do projeto DSB
+     * const myRelatorio = new GridDados();
+     * myRelatorio.titulo = 'Análise de Receitas';
+     * myRelatorio.descricao = 'Com totalizadores';
+     * myRelatorio.cabecalho = ['Item', 'Valor', 'Percentual'];
+     * myRelatorio.larguraColunas = [40, 30, 30];
+     * myRelatorio.alinhamento = ['E', 'D', 'D'];
+     * myRelatorio.formato = ['T', 'M', '%'];
+     * myRelatorio.colunasComOperacao = ['Valor', 'Percentual'];
+     * myRelatorio.colunasComOperacaoTipo = ['Tot', 'Med'];
+     * myRelatorio.configFooter = 'rotulado'; // Escolhe o layout do footer
+     * myRelatorio.setDados(dados);
      */
-    constructor(titulo, descricao, cabecalho, larguraColunas, alinhamento, formato, posicaoCanvas = {x: 3, y: 5}, opcoes = {}) {
-        super(titulo, posicaoCanvas, 'tabela');
+    constructor() {
+        super('', {x: 3, y: 5}, 'tabela');
         
-        this.descricao = descricao;
-        this.cabecalho = cabecalho;
-        this.larguraColunas = larguraColunas;
-        this.alinhamento = alinhamento;
-        this.formato = formato;
+        // ===== PROPRIEDADES PRINCIPAIS (definidas após instanciação) =====
+        /** @type {string} Título principal exibido no header da tabela */
+        this.titulo = '';
+        
+        /** @type {string} Descrição/subtítulo da tabela */
+        this.descricao = '';
+
+        /** @type {Array<string>} Nomes das colunas */
+        this.cabecalho = [];
+        
+        /** @type {Array<number>} Larguras das colunas em vw */
+        this.larguraColunas = [];
+        
+        /** @type {Array<string>} Alinhamento das colunas (E/C/D) */
+        this.alinhamento = [];
+        
+        /** @type {Array<string>} Formato das colunas (T/M/D/%) */
+        this.formato = [];
+        
+        /** @type {Array<Object>} Dados da tabela (preenchido via setDados()) */
         this.dados = [];
         
-        // Opções avançadas (baseadas no sistema antigo)
-        this.edicaoDeDados = opcoes.edicaoDeDados || false;
-        this.configResultados = opcoes.configResultados || null;
-        this.tabelaConfig = opcoes.tabelaConfig || {};
+        // ===== PROPRIEDADES CONFIGURÁVEIS (definidas após instanciação) =====
+        /** @type {Array<string>} Nomes das colunas que terão operações matemáticas no footer */
+        this._colunasComOperacao = [];
         
-        // Integração com outros construtores (REAPROVEITADO!)
-        this.objSelect = null;
+        /** @type {Array<string>} Tipos de operação para cada coluna em colunasComOperacao
+         * Valores aceitos: 'Tot', 'Med', 'Cnt', 'Max', 'Min', 'DPad', 'Var', 'MDn', 'Q1', 'Q3', 'CV', 'Amp'
+         * Exemplo: ['Tot', 'Med', 'Max'] para 3 colunas com Soma, Média e Máximo */
+        this.colunasComOperacaoTipo = [];
+        
+        /** @type {string} Tipo de organização/layout do footer
+         * Valores aceitos: 
+         * 'simples' - Uma linha com valores apenas
+         * 'rotulado' - Rótulo + valor na mesma célula (ex: "Soma: R$ 1.500")
+         * 'duplo' - Duas linhas (linha 1: rótulos, linha 2: valores)
+         * 'inline' - Valores com prefixos inline (ex: "Total R$ 1.500")
+         * 'compacto' - Apenas valores, sem rótulos
+         * 'detalhado' - Linha de rótulos + linha de valores + linha de análise */
+        this.configFooter = 'simples';
+        
+        // ===== CONFIGURAÇÕES AVANÇADAS =====
+        /** @type {boolean} Permite edição inline das células */
+        this.edicaoDeDados = false;
+        
+        /** @type {Array<string>|null} Config. analytics no footer (Tot, Med, Max, etc.) */
+        this.configResultados = null;
+        
+        /** @type {Object} Configurações adicionais da tabela */
+        this.tabelaConfig = {};
+        
+        // ===== INTEGRAÇÃO COM OUTROS COMPONENTES =====
+        /** @type {CriarBtnRodape|null} Objeto de botões personalizados */
         this.objBotoes = null;
         
-        // Configurar selects se fornecidos
-        if (opcoes.selects) {
-            const { labels, campos, larguras, arranjo = 'linha' } = opcoes.selects;
-            if (labels && campos && larguras) {
-                this.objSelect = new CriarSelects(labels, campos, larguras, arranjo);
-            }
-        }
-        
-        // Configurar botões se fornecidos
-        if (opcoes.grupoBotoes && Array.isArray(opcoes.grupoBotoes)) {
-            this.objBotoes = new CriarBtnRodape(opcoes.grupoBotoes);
-        }
-        
-        // Validação (baseada no sistema antigo)
-        this._validarPropriedades();
-        
-        // ✅ RENDERIZAÇÃO AUTOMÁTICA - Restaurando comportamento original
-        // O objeto já sai pronto para uso, eliminando necessidade de chamada manual
-        this.render();
+        // ===== INICIALIZAÇÃO =====
+        // Não executa validação nem renderização automática
+        // Propriedades devem ser definidas manualmente antes do uso
     }
 
     /**
-     * Validação robusta (REAPROVEITADA do sistema antigo)
+     * Setter personalizado para colunasComOperacao que automaticamente zera propriedades relacionadas
+     * @param {Array<string>} valor - Array com nomes das colunas ou array vazio
+     */
+    set colunasComOperacao(valor) {
+        this._colunasComOperacao = valor;
+        
+        // Se array vazio, zera propriedades relacionadas automaticamente
+        if (!valor || valor.length === 0) {
+            this.colunasComOperacaoTipo = [];
+        }
+    }
+
+    /**
+     * Getter para colunasComOperacao
+     * @returns {Array<string>}
+     */
+    get colunasComOperacao() {
+        return this._colunasComOperacao || [];
+    }
+
+    /**
+     * Validação robusta de consistência entre propriedades correlacionadas
      */
     _validarPropriedades() {
+        // ===== VALIDAÇÃO GRUPO 1: PROPRIEDADES PRINCIPAIS (baseadas em cabecalho) =====
         const nCol = this.cabecalho.length;
         
+        // 1.1 Cabeçalho (propriedade guia)
         if (!Array.isArray(this.cabecalho) || nCol === 0) {
             throw new Error('Cabeçalho deve ser um array não vazio.');
         }
         
+        // 1.2 Largura das colunas
         if (!Array.isArray(this.larguraColunas) || this.larguraColunas.length !== nCol) {
-            throw new Error('LarguraColunas deve ter o mesmo número de elementos que o cabeçalho.');
+            throw new Error(`LarguraColunas deve ter ${nCol} elementos (mesmo número que cabeçalho).`);
         }
-        
         if (!this.larguraColunas.every(x => typeof x === 'number' && !isNaN(x))) {
-            throw new Error('LarguraColunas deve conter apenas números.');
+            throw new Error('LarguraColunas deve conter apenas números válidos.');
         }
         
+        // 1.3 Alinhamento das colunas
         if (!Array.isArray(this.alinhamento) || this.alinhamento.length !== nCol) {
-            throw new Error('Alinhamento deve ter o mesmo número de elementos que o cabeçalho.');
+            throw new Error(`Alinhamento deve ter ${nCol} elementos (mesmo número que cabeçalho).`);
         }
-        
         if (!this.alinhamento.every(x => ['E','C','D'].includes(x))) {
-            throw new Error('Alinhamento só pode conter "E", "C" ou "D".');
+            throw new Error('Alinhamento só pode conter "E" (esquerda), "C" (centro) ou "D" (direita).');
         }
         
+        // 1.4 Formato das colunas
         if (!Array.isArray(this.formato) || this.formato.length !== nCol) {
-            throw new Error('Formato deve ter o mesmo número de elementos que o cabeçalho.');
+            throw new Error(`Formato deve ter ${nCol} elementos (mesmo número que cabeçalho).`);
+        }
+        const formatosValidos = ['T', 'M', 'D', '%'];
+        if (!this.formato.every(x => formatosValidos.includes(x))) {
+            throw new Error('Formato só pode conter "T" (texto), "M" (moeda), "D" (data) ou "%" (porcentagem).');
         }
         
-        // Validação do configResultados (REAPROVEITADA!)
+        // ===== VALIDAÇÃO GRUPO 2: PROPRIEDADES DE OPERAÇÃO (baseadas em colunasComOperacao) =====
+        const nColOperacao = this.colunasComOperacao.length;
+        
+        if (nColOperacao > 0) {
+            // 2.1 Verificar se colunas de operação existem no cabeçalho
+            const colunasInvalidas = this.colunasComOperacao.filter(col => !this.cabecalho.includes(col));
+            if (colunasInvalidas.length > 0) {
+                throw new Error(`Colunas de operação inválidas: ${colunasInvalidas.join(', ')}. Devem existir no cabeçalho.`);
+            }
+            
+            // 2.2 Tipos de operação
+            if (!Array.isArray(this.colunasComOperacaoTipo) || this.colunasComOperacaoTipo.length !== nColOperacao) {
+                throw new Error(`ColunasComOperacaoTipo deve ter ${nColOperacao} elementos (mesmo número que colunasComOperacao).`);
+            }
+            
+            const tiposPermitidos = ['Tot', 'Med', 'Cnt', 'Max', 'Min', 'DPad', 'Var', 'MDn', 'Q1', 'Q3', 'CV', 'Amp'];
+            const tiposInvalidos = this.colunasComOperacaoTipo.filter(tipo => !tiposPermitidos.includes(tipo));
+            if (tiposInvalidos.length > 0) {
+                throw new Error(`Tipos de operação inválidos: ${tiposInvalidos.join(', ')}. Tipos válidos: ${tiposPermitidos.join(', ')}.`);
+            }
+        }
+        
+        // ===== VALIDAÇÃO GRUPO 3: CONFIGURAÇÕES AVANÇADAS =====
+        
+        // 3.1 ConfigResultados (sistema legado - manter compatibilidade)
         if (this.configResultados !== null) {
             if (!Array.isArray(this.configResultados)) {
-                throw new Error('configResultados deve ser um array ou null.');
+                throw new Error('ConfigResultados deve ser um array ou null.');
             }
             if (this.configResultados.length !== nCol) {
-                throw new Error('configResultados deve ter o mesmo número de elementos que as colunas.');
+                throw new Error(`ConfigResultados deve ter ${nCol} elementos (mesmo número que cabeçalho).`);
             }
             
             const tiposPermitidos = [null, 'Tot', 'Med', 'Cnt', 'Max', 'Min', 'DPad', 'Var', 'MDn', 'Q1', 'Q3', 'CV', 'Amp'];
@@ -105,12 +230,18 @@ export class CriarTabelas extends FormularioBase {
                 const valor = this.configResultados[i];
                 if (valor !== null && typeof valor === 'string') {
                     if (!tiposPermitidos.includes(valor) && valor.trim() === '') {
-                        throw new Error(`configResultados[${i}]: strings vazias não são permitidas.`);
+                        throw new Error(`ConfigResultados[${i}]: strings vazias não são permitidas.`);
                     }
                 } else if (valor !== null) {
-                    throw new Error(`configResultados[${i}]: deve ser null, string (tipo de cálculo) ou label personalizado.`);
+                    throw new Error(`ConfigResultados[${i}]: deve ser null, string (tipo de cálculo) ou label personalizado.`);
                 }
             }
+        }
+        
+        // 3.2 ConfigFooter
+        const footersValidos = ['simples', 'rotulado', 'duplo', 'inline', 'compacto', 'detalhado'];
+        if (!footersValidos.includes(this.configFooter)) {
+            throw new Error(`ConfigFooter deve ser um dos valores: ${footersValidos.join(', ')}.`);
         }
     }
 
@@ -129,40 +260,6 @@ export class CriarTabelas extends FormularioBase {
         if (dados.length > 0 && this.form && this.form.querySelector('#mainTabela')) {
             this.construirTabela();
         }
-    }
-
-    /**
-     * Popula automaticamente a primeira select com estados brasileiros
-     */
-    _popularPrimeiraSelect() {
-        if (!this.objSelect) {
-            return;
-        }
-        
-        const campos = this.objSelect.campos;
-        if (!campos || campos.length === 0) {
-            return;
-        }
-        
-        const primeiroCampo = campos[0]; // deve ser 'estado'
-        
-        // Verifica se o elemento DOM existe
-        const elemento = this.objSelect.obterElementoSelect(primeiroCampo);
-        if (!elemento) {
-            return;
-        }
-        
-        // Estados brasileiros principais para popular a select
-        const estadosBrasil = ['SP', 'RJ', 'MG', 'RS', 'BA', 'PR', 'SC', 'GO', 'PE', 'CE'];
-        
-        // Formata para a select: [{value, text}, ...]
-        const dadosSelect = [
-            { value: '', text: 'Selecione um Estado' },
-            ...estadosBrasil.map(estado => ({ value: estado, text: estado }))
-        ];
-        
-        // Popula a primeira select com os estados
-        this.objSelect.popularSelect(primeiroCampo, dadosSelect);
     }
 
     /**
@@ -386,32 +483,6 @@ export class CriarTabelas extends FormularioBase {
     }
 
     /**
-     * Configurar controles (APENAS selects no header, botões vão para divRodape)
-     */
-    _configurarControles() {
-        if (!this.form) return;
-        
-        const divControles = this.form.querySelector('#divControlesTabela');
-        if (!divControles) return;
-        
-        // Limpa controles anteriores
-        divControles.innerHTML = '';
-        
-        // Adiciona APENAS selects no header
-        if (this.objSelect) {
-            // ✅ CORREÇÃO: Usa inserirEm() em vez de só gerarHTML()
-            // Isso garante que os elementos sejam mapeados corretamente
-            this.objSelect.inserirEm(divControles);
-            
-            // ✅ NOVO: Configura sistema de eventos em cascata
-            this._configurarEventosCascata();
-        }
-        
-        // Botões vão para divRodape (chamado separadamente)
-        this._configurarBotoesRodape();
-    }
-
-    /**
      * Configura o sistema de eventos em cascata (Estado → Cidade → Tabela)
      */
     _configurarEventosCascata() {
@@ -623,13 +694,6 @@ export class CriarTabelas extends FormularioBase {
     _limparConteudo() {
         if (!this.form) return;
         
-        // Remove event listeners para evitar vazamentos de memória
-        const divControles = this.form.querySelector('#divControlesTabela');
-        if (divControles && this._handlerSelectsCascata) {
-            divControles.removeEventListener('select-alterada', this._handlerSelectsCascata);
-            this._handlerSelectsCascata = null;
-        }
-        
         // Limpa área de controles
         const controlesEl = this.form.querySelector('#divControlesTabela');
         if (controlesEl) controlesEl.innerHTML = '';
@@ -662,21 +726,7 @@ export class CriarTabelas extends FormularioBase {
             this.configurarHeader(this.titulo);
         }
         
-        // Configura controles (selects e botões)
-        this._configurarControles();
-        
-        // ✅ Popula primeira select após renderizar controles
-        if (this.objSelect) {
-            this._popularPrimeiraSelect();
-        }
-        
-        // Footer agora tem sistema de mensagens (não precisa configurar botões)
-        
-        // ❌ REMOVIDO: Não deve popular tabela no render()
-        // A tabela só deve ser populada por eventos das selects
-        // if (this.dados.length > 0) {
-        //     this.construirTabela();
-        // }
+        // Footer tem sistema de mensagens
     }
 
     /**

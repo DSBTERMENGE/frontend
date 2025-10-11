@@ -496,13 +496,13 @@ async function atualizar_registro() {
             // 🔄 SINCRONIZAÇÃO SILENCIOSA: Atualiza dadosDisponiveis e recalcula reg_num
             if (resultadoAPI.dados_atualizados && dadosDisponiveis[reg_num]) {
                 // 1. Captura PK do registro atual (antes de substituir array)
-                const pkAtual = dadosDisponiveis[reg_num].idgrupo;
+                const pkAtual = dadosDisponiveis[reg_num][window.api_info.pk];
                 
                 // 2. Substitui array completo com dados atualizados do backend
                 dadosDisponiveis = resultadoAPI.dados_atualizados;
                 
                 // 3. Localiza nova posição da PK no array atualizado
-                const novaPosicao = dadosDisponiveis.findIndex(item => item.idgrupo === pkAtual);
+                const novaPosicao = dadosDisponiveis.findIndex(item => item[window.api_info.pk] === pkAtual);
                 
                 // 4. Atualiza reg_num para nova posição (se encontrada)
                 if (novaPosicao !== -1) {
@@ -580,8 +580,8 @@ async function incluir_registro_novo() {
                 // 3. Varre array novo procurando PK que não existe no antigo
                 let pkNovoRegistro = null;
                 for (let i = 0; i < dadosDisponiveis.length; i++) {
-                    const pkAtual = dadosDisponiveis[i].idgrupo;
-                    const existeNoArrayAntigo = arrayAntigo.some(item => item.idgrupo === pkAtual);
+                    const pkAtual = dadosDisponiveis[i][window.api_info.pk];
+                    const existeNoArrayAntigo = arrayAntigo.some(item => item[window.api_info.pk] === pkAtual);
                     
                     if (!existeNoArrayAntigo) {
                         // Encontrou! Esta é a PK do novo registro

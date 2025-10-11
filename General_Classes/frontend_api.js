@@ -181,7 +181,7 @@ export default class api_fe {
         // =====================================
         
         /**
-         * Nome da view ativa para consultas de dados (OPERAÇÕES DE LEITURA)
+         * Nome da view por pdarão deve ser o nome da tabela alvo + "_view" 
          * @type {string}
          * @example "vw_grupos", "vw_lancamentos_completos"
          * @usage Usado em: popularform(), buscar_todos(), consultas gerais
@@ -355,15 +355,15 @@ export default class api_fe {
             }
             
             // Monta payload completo para o backend
-            const url = `${this.backend_url}/update_data_db`;
+            const url = `${this.const_backend_url}/update_data_db`;
             const payload = {
                 tabela_alvo: this.tabela_alvo,
                 campos: this.campos || [],
                 campos_obrigatorios: this.campos_obrigatorios || [],
-                database_name: this.database_name || "",
-                database_path: this.database_path || "",
+                database_name: this.const_database_name || "",
+                database_path: this.const_database_path || "",
                 dados: dados_para_update,
-                application_path: this.application_path
+                application_path: this.const_application_path
             };
             
             flow_marker(`🌐 Enviando UPDATE para: ${url}`, payload);
@@ -411,15 +411,15 @@ export default class api_fe {
             }
             
             // Monta payload completo para o backend
-            const url = `${this.backend_url}/incluir_reg_novo_db`;
+            const url = `${this.const_backend_url}/incluir_reg_novo_db`;
             const payload = {
                 tabela_alvo: this.tabela_alvo,
                 campos: this.campos || [],
                 campos_obrigatorios: this.campos_obrigatorios || [],
-                database_name: this.database_name || "",
-                database_path: this.database_path || "",
+                database_name: this.const_database_name || "",
+                database_path: this.const_database_path || "",
                 dados: dados_novo_registro,
-                application_path: this.application_path
+                application_path: this.const_application_path
             };
             
             flow_marker(`🌐 Enviando INSERT para: ${url}`, payload);
@@ -550,7 +550,7 @@ export default class api_fe {
      * api.atualizar_backend_url("https://api.meusite.com");
      */
     atualizar_backend_url(nova_url) {
-        this.backend_url = nova_url;
+        this.const_backend_url = nova_url;
         console.log(`✅ Backend URL atualizada para: ${nova_url}`);
     }
     
@@ -589,7 +589,7 @@ export default class api_fe {
                 body: JSON.stringify(payload)
             };
             
-            const response = await fetch(this.backend_url, config);
+            const response = await fetch(this.const_backend_url, config);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -631,7 +631,7 @@ export default class api_fe {
         }
         
         // ✅ CORREÇÃO: Valida propriedades individuais ao invés de database_config
-        if (!this.database_name && !this.database_path) {
+        if (!this.const_database_name && !this.const_database_path) {
             console.error("❌ Configuração de database não definida (database_name ou database_path necessário)");
             return false;
         }
@@ -678,9 +678,9 @@ export default class api_fe {
             const dados = {
                 tabela: this.tabela_alvo,
                 dados: dados_registro,
-                database_path: this.database_path || "",
-                database_name: this.database_name || "",
-                database_host: this.database_host || ""
+                database_path: this.const_database_path || "",
+                database_name: this.const_database_name || "",
+                database_host: this.const_database_host || ""
             };
             
             console.log(`📝 Inserindo novo registro em ${this.tabela_alvo}:`, dados_registro);
@@ -730,9 +730,9 @@ export default class api_fe {
                 tabela: this.tabela_alvo,
                 id: id,
                 dados: dados_atualizacao,
-                database_path: this.database_path || "",
-                database_name: this.database_name || "",
-                database_host: this.database_host || ""
+                database_path: this.const_database_path || "",
+                database_name: this.const_database_name || "",
+                database_host: this.const_database_host || ""
             };
             
             console.log(`📝 Atualizando registro ID ${id} em ${this.tabela_alvo}:`, dados_atualizacao);
@@ -782,9 +782,9 @@ export default class api_fe {
             const dados = {
                 tabela: this.tabela_alvo,
                 id: id,
-                database_path: this.database_path || "",
-                database_name: this.database_name || "",
-                database_host: this.database_host || ""
+                database_path: this.const_database_path || "",
+                database_name: this.const_database_name || "",
+                database_host: this.const_database_host || ""
             };
             
             console.log(`🗑️ Removendo registro ID ${id} de ${this.tabela_alvo}`);
