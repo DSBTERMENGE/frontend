@@ -318,6 +318,8 @@ export class GridDados {
         // ✅ CONSTRÓI A TABELA automaticamente quando dados são definidos
         if (dados.length > 0 && this.cabecalho.length > 0) {
             this.construirTabela();
+            // ✅ RENDERIZA automaticamente após construir a tabela
+            this.render();
         }
     }
 

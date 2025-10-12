@@ -291,8 +291,8 @@ export default class api_fe {
             flow_marker('📋 consulta_dados_form() iniciado');
             
             // Validação básica
-            if (!the_view) {
-                error_catcher('❌ Erro no consulta_dados_form():', error);
+            if (!this.view) {
+                throw new Error("View não configurada. Configure this.view primeiro.");
             }
             
             // Faz requisição direta para o endpoint /consultar_dados_db
