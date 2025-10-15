@@ -454,491 +454,71 @@ export default class api_fe {
      * @returns {Promise<Object>} Retorna True se bem sucedido na atualização
      */
 
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-*********************************************************************
-                       CÓDDIGO OBSOLETO - NÃO USAR
-*********************************************************************
-*/
-
     /**
-     * Configura a view e tabela ativas para operações de dados
+     * Processa extratos PDF e extrai despesas automaticamente
      * 
-     * @param {string} nome_view - Nome da view para consultas (ex: "vw_grupos")
-     * @param {string} nome_tabela - Nome da tabela para CRUD (ex: "tb_grupos") 
-     * @param {Array<string>} [campos_obrigatorios=["Todos"]] - Array de campos obrigatórios para operação
+     * Executa o processo completo de:
+     * 1. Validação dos arquivos PDF na pasta de extratos
+     * 2. Extração dos dados financeiros
+     * 3. Classificação das despesas
+     * 4. Salvamento no banco de dados
      * 
-     * @example 
-     * // Configuração para grupos
-     * api.configurar_dados("vw_grupos", "tb_grupos", ["grupo", "descricao"]);
-     * 
-     * // Configuração para consulta complexa
-     * api.configurar_dados("vw_lancamentos_completos", "tb_lancamentos", ["Todos"]);
-     */
-    configurar_dados(nome_view, nome_tabela, campos_obrigatorios = ["Todos"]) {
-        this.view = nome_view;
-        this.tabela_alvo = nome_tabela;
-        this.campos_obrigatorios = campos_obrigatorios;
-        console.log(`✅ Dados configurados - View: ${nome_view}, Tabela: ${nome_tabela}, Campos obrigatórios:`, campos_obrigatorios);
-    }
-    
-    /**
-     * Configura dados que vão para o formulário (template/estrutura)
-     * 
-     * @param {Object} dados - Objeto com estrutura dos dados
-     * 
+     * @returns {Promise<Object>} Objeto com resultado do processamento
      * @example
-     * // Template para formulário de grupos
-     * api.configurar_dados_form_out({
-     *     grupo: "",
-     *     descricao: ""
-     * });
+     * // Exemplo de uso
+     * const resultado = await api_info.processar_extratos_pdf();
+     * if (resultado.sucesso) {
+     *     console.log('Extratos processados:', resultado.dados_processados);
+     * } else {
+     *     console.error('Erro:', resultado.erro);
+     * }
      */
-    configurar_dados_form_out(dados) {
-        this.dados_form_out = dados;
-        console.log('✅ Template de formulário configurado:', dados);
-    }
-    
-    /**
-     * Configura dados que vêm do formulário (valores preenchidos)
-     * 
-     * @param {Object} dados - Objeto com dados preenchidos pelo usuário
-     * 
-     * @example
-     * // Dados vindos do formulário
-     * api.configurar_dados_form_in({
-     *     grupo: "Alimentação",
-     *     descricao: "Despesas com comida e bebida"
-     * });
-     */
-    configurar_dados_form_in(dados) {
-        this.dados_form_in = dados;
-        console.log('✅ Dados de formulário configurados:', dados);
-    }
-    
-    /**
-     * Atualiza configuração do banco de dados
-     * 
-     * @param {Object} config - Nova configuração do database
-     * 
-     * @example
-     * // Configuração de banco SQLite local
-     * api.configurar_database({
-     *     tipo: "sqlite",
-     *     nome: "financas.db",
-     *     caminho: "./dados/"
-     * });
-     */
-    
-    /**
-     * Atualiza URL do backend
-     * 
-     * @param {string} nova_url - Nova URL do backend
-     * 
-     * @example
-     * api.atualizar_backend_url("https://api.meusite.com");
-     */
-    atualizar_backend_url(nova_url) {
-        this.const_backend_url = nova_url;
-        console.log(`✅ Backend URL atualizada para: ${nova_url}`);
-    }
-    
-    // =====================================
-    // 🔧 MÉTODOS AUXILIARES INTERNOS
-    // =====================================
-    
-    /**
-     * Realiza requisição HTTP para o backend
-     * 
-     * @param {string} operacao - Tipo de operação (select_all, insert, update, delete, etc.)
-     * @param {Object} dados - Dados a serem enviados no payload
-     * @returns {Promise<Object>} Resposta do backend
-     * 
-     * @private
-     * @example
-     * // Uso interno - não chamar diretamente
-     * const response = await this.fazer_requisicao("select_all", {
-     *     tabela_or_view: "vw_grupos",
-     *     database_config: this.database_config
-     * });
-     */
-    async fazer_requisicao(operacao, dados) {
+    async processar_extratos_pdf() {
+        flow_marker('INÍCIO frontend_api.processar_extratos_pdf');
+        
         try {
-            const payload = {
-                operacao: operacao,
-                app_name: this.app_name,
-                ...dados
-            };
-            
-            console.log(`🌐 Enviando requisição - Operação: ${operacao}`, payload);
-            
-            const config = {
+            const configuracao = {
                 method: 'POST',
-                headers: this.const_headers,
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             };
+
+            flow_marker('Enviando requisição para /processar_extratos_pdf');
             
-            const response = await fetch(this.const_backend_url, config);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const resultado = await response.json();
-            console.log(`🌐 Resposta recebida:`, resultado);
-            
-            return resultado;
-            
-        } catch (error) {
-            console.error(`❌ Erro na requisição HTTP:`, error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Valida se a configuração básica está completa
-     * 
-     * @param {string} tipo_operacao - Tipo de operação para validar
-     * @returns {boolean} True se válida, false caso contrário
-     * 
-     * @private
-     * @example
-     * // Uso interno
-     * if (!this.validar_configuracao("consulta")) {
-     *     throw new Error("Configuração incompleta");
-     * }
-     */
-    validar_configuracao(tipo_operacao) {
-        if (tipo_operacao === "consulta" && !this.view) {
-            console.error("❌ View não configurada para consulta");
-            return false;
-        }
-        
-        if (["insert", "update", "delete"].includes(tipo_operacao) && !this.tabela_alvo) {
-            console.error("❌ Tabela alvo não configurada para operação CRUD");
-            return false;
-        }
-        
-        // ✅ CORREÇÃO: Valida propriedades individuais ao invés de database_config
-        if (!this.const_database_name && !this.const_database_path) {
-            console.error("❌ Configuração de database não definida (database_name ou database_path necessário)");
-            return false;
-        }
-        
-        return true;
-    }
-    
-    // =====================================
-    // 🗄️ MÉTODOS CRUD - DATABASE
-    // =====================================
-    
-    
-    /**
-     * Insere novo registro na tabela configurada
-     * 
-     * @param {Object} dados_registro - Dados do novo registro
-     * @returns {Promise<Object>} Resultado da inserção
-     * 
-     * @example
-     * // Inserir novo grupo
-     * const resultado = await api.inserir({
-     *     grupo: "Transporte",
-     *     descricao: "Despesas com combustível e manutenção"
-     * });
-     * 
-     * @example
-     * // Com validação de resultado
-     * try {
-     *     const resultado = await api.inserir(novoDado);
-     *     if (resultado.sucesso) {
-     *         console.log(`Registro inserido com ID: ${resultado.id_inserido}`);
-     *     }
-     * } catch (error) {
-     *     alert("Erro ao salvar: " + error.message);
-     * }
-     */
-    async inserir(dados_registro) {
-        try {
-            if (!this.validar_configuracao("insert")) {
-                throw new Error("Configuração inválida para inserção");
-            }
-            
-            const operacao = "insert";
-            const dados = {
-                tabela: this.tabela_alvo,
-                dados: dados_registro,
-                database_path: this.const_database_path || "",
-                database_name: this.const_database_name || "",
-                database_host: this.const_database_host || ""
-            };
-            
-            console.log(`📝 Inserindo novo registro em ${this.tabela_alvo}:`, dados_registro);
-            const response = await this.fazer_requisicao(operacao, dados);
-            
-            if (response.sucesso) {
-                console.log(`✅ Registro inserido com sucesso. ID: ${response.id_inserido}`);
-                return response;
-            } else {
-                throw new Error(response.erro || "Erro na inserção");
-            }
-        } catch (error) {
-            console.error("❌ Erro ao inserir registro:", error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Atualiza registro existente na tabela
-     * 
-     * @param {number|string} id - ID do registro a atualizar
-     * @param {Object} dados_atualizacao - Dados para atualização
-     * @returns {Promise<Object>} Resultado da atualização
-     * 
-     * @example
-     * // Atualizar descrição de um grupo
-     * await api.atualizar(3, {
-     *     descricao: "Nova descrição para o grupo"
-     * });
-     * 
-     * @example
-     * // Atualização completa
-     * const dadosNovos = {
-     *     grupo: "Lazer Atualizado",
-     *     descricao: "Entretenimento e diversão"
-     * };
-     * await api.atualizar(grupoId, dadosNovos);
-     */
-    async atualizar(id, dados_atualizacao) {
-        try {
-            if (!this.validar_configuracao("update")) {
-                throw new Error("Configuração inválida para atualização");
-            }
-            
-            const operacao = "update";
-            const dados = {
-                tabela: this.tabela_alvo,
-                id: id,
-                dados: dados_atualizacao,
-                database_path: this.const_database_path || "",
-                database_name: this.const_database_name || "",
-                database_host: this.const_database_host || ""
-            };
-            
-            console.log(`📝 Atualizando registro ID ${id} em ${this.tabela_alvo}:`, dados_atualizacao);
-            const response = await this.fazer_requisicao(operacao, dados);
-            
-            if (response.sucesso) {
-                console.log("✅ Registro atualizado com sucesso");
-                return response;
-            } else {
-                throw new Error(response.erro || "Erro na atualização");
-            }
-        } catch (error) {
-            console.error(`❌ Erro ao atualizar registro ID ${id}:`, error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Remove registro da tabela
-     * 
-     * @param {number|string} id - ID do registro a remover
-     * @returns {Promise<Object>} Resultado da remoção
-     * 
-     * @example
-     * // Remover grupo
-     * if (confirm("Deseja realmente excluir este grupo?")) {
-     *     await api.remover(grupoId);
-     *     console.log("Grupo removido com sucesso");
-     * }
-     * 
-     * @example
-     * // Com tratamento de erro
-     * try {
-     *     await api.remover(id);
-     *     alert("Registro excluído com sucesso!");
-     * } catch (error) {
-     *     alert("Erro ao excluir: " + error.message);
-     * }
-     */
-    async remover(id) {
-        try {
-            if (!this.validar_configuracao("delete")) {
-                throw new Error("Configuração inválida para remoção");
-            }
-            
-            const operacao = "delete";
-            const dados = {
-                tabela: this.tabela_alvo,
-                id: id,
-                database_path: this.const_database_path || "",
-                database_name: this.const_database_name || "",
-                database_host: this.const_database_host || ""
-            };
-            
-            console.log(`🗑️ Removendo registro ID ${id} de ${this.tabela_alvo}`);
-            const response = await this.fazer_requisicao(operacao, dados);
-            
-            if (response.sucesso) {
-                console.log("✅ Registro removido com sucesso");
-                return response;
-            } else {
-                throw new Error(response.erro || "Erro na remoção");
-            }
-        } catch (error) {
-            console.error(`❌ Erro ao remover registro ID ${id}:`, error);
-            throw error;
-        }
-    }
-    
-    // =====================================
-    // 📋 MÉTODOS DE FORMULÁRIOS
-    // =====================================
-    
-    
-    // =====================================
-    // 🔧 MÉTODOS UTILITÁRIOS
-    // =====================================
-    
-    /**
-     * Testa conectividade com o backend
-     * 
-     * @returns {Promise<Object>} Status da conexão
-     * 
-     * @example
-     * // Teste simples
-     * const status = await api.testar_conexao();
-     * if (status.sucesso) {
-     *     console.log("Backend disponível");
-     * }
-     * 
-     * @example
-     * // Com tratamento completo
-     * try {
-     *     const resultado = await api.testar_conexao();
-     *     console.log("Status do backend:", resultado);
-     * } catch (error) {
-     *     console.error("Backend inacessível:", error);
-     * }
-     */
-    async testar_conexao() {
-        try {
-            const response = await fetch(`${this.backend_url}/health`, {
-                method: 'GET',
-                headers: this.const_headers
-            });
-            
-            if (response.ok) {
-                const dados = await response.json();
-                console.log('✅ Conexão com backend OK:', dados);
-                return { 
-                    sucesso: true, 
-                    dados: dados,
-                    url: this.backend_url 
+            const response = await fetch('/processar_extratos_pdf', configuracao);
+            const dados = await response.json();
+
+            flow_marker('Resposta recebida do backend', dados);
+
+            if (response.ok && dados.sucesso) {
+                flow_marker('Processamento de extratos concluído com sucesso');
+                return {
+                    sucesso: true,
+                    mensagem: dados.mensagem,
+                    dados_processados: dados.dados_processados
                 };
             } else {
-                throw new Error(`Backend retornou status ${response.status}`);
+                flow_marker(`Erro no processamento: ${dados.erro} (Etapa: ${dados.etapa})`);
+                return {
+                    sucesso: false,
+                    erro: dados.erro,
+                    etapa: dados.etapa || 'desconhecida'
+                };
             }
+
         } catch (error) {
-            console.error('❌ Erro ao testar conexão:', error);
-            return { 
-                sucesso: false, 
-                erro: error.message,
-                url: this.backend_url
+            error_catcher('Erro no processar_extratos_pdf', error);
+            return {
+                sucesso: false,
+                erro: `Erro de conexão: ${error.message}`,
+                etapa: 'conexao'
             };
         }
     }
-    
-    /**
-     * Limpa todos os dados configurados na instância
-     * 
-     * @example
-     * // Limpar dados de formulário
-     * api.limpar_dados();
-     * console.log("Dados limpos");
-     */
-    limpar_dados() {
-        this.dados_form_in = {};
-        this.dados_form_out = {};
-        console.log('🧹 Dados da instância API limpos');
-    }
-    
-    /**
-     * Obtém configuração atual completa da instância
-     * 
-     * @returns {Object} Configuração atual
-     * 
-     * @example
-     * // Verificar configuração
-     * const config = api.obter_configuracao();
-     * console.log("Configuração atual:", config);
-     * 
-     * @example
-     * // Salvar configuração para debug
-     * const backup = api.obter_configuracao();
-     * localStorage.setItem('api_backup', JSON.stringify(backup));
-     */
-    obter_configuracao() {
-        return {
-            // Identificação
-            app_name: this.app_name,
-            
-            // Comunicação
-            backend_url: this.backend_url,
-            timeout: this.timeout,
-            
-            // Database
-            database_config: this.database_config,
-            database_name: this.database_name,
-            database_path: this.database_path,
-            database_host: this.database_host,
-            
-            // Dados
-            view: this.view,
-            tabela_alvo: this.tabela_alvo,
-            campos: this.campos,
-            campos_obrigatorios: this.campos_obrigatorios,
-            
-            // Formulários
-            dados_form_in: this.dados_form_in,
-            dados_form_out: this.dados_form_out
-        };
-    }
-    
-    /**
-     * Exibe resumo das configurações no console para debug
-     * 
-     * @example
-     * // Debug rápido
-     * api.debug_configuracao();
-     */
-    debug_configuracao() {
-        const config = this.obter_configuracao();
-        console.group(`🐛 Debug da API - ${this.app_name}`);
-        console.log('🌐 Backend URL:', config.backend_url);
-        console.log('🗄️ Database:', config.database_config);
-        console.log('� View atual:', config.view);
-        console.log('🎯 Tabela alvo:', config.tabela_alvo);
-        console.log('📝 Campos ativos:', config.campos_ativos);
-        console.log('📥 Dados form in:', config.dados_form_in);
-        console.log('📤 Dados form out:', config.dados_form_out);
-        console.groupEnd();
-    }
-}
 
+} // FIM DA CLASSE api_fe
 
 // Log de inicialização do módulo
 console.log('🚀 Módulo frontend_api.js carregado - Classe api_fe disponível');
 console.log('📖 Framework DSB - Sistema de API Frontend v2.0');
-
