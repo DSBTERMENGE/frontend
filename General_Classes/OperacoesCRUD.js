@@ -1302,6 +1302,7 @@ function obterValoresSelects(instanciaForm) {
  * @param {string} config.selectDestino - Nome da select a ser populada (ex: 'subgrupo')
  * @param {string} config.nomeFiltro - Nome do filtro para a API (ex: 'idgrupo')
  * @param {string} config.valor - Valor selecionado na select origem
+ * @param {Object} config.configSelects - Configuração dos selects com campo_value e campo_exibir
  * @param {Object} config.instanciaForm - Instância do formulário (opcional)
  * @returns {Promise<boolean>} Sucesso da operação
  * 
@@ -1325,10 +1326,14 @@ async function processarFiltroSelect(config) {
     try {
         console.log(`🎯 Iniciando processamento de filtro select:`, config);
         
-        const { selectOrigem, selectDestino, nomeFiltro, valor, instanciaForm } = config;
+        const { selectOrigem, selectDestino, nomeFiltro, valor, instanciaForm, configSelects } = config;
         
         if (!selectOrigem || !selectDestino || !nomeFiltro) {
             throw new Error('Configuração inválida: selectOrigem, selectDestino e nomeFiltro são obrigatórios');
+        }
+        
+        if (!configSelects || !configSelects.campos || !configSelects.campo_value || !configSelects.campo_exibir) {
+            throw new Error('Configuração inválida: configSelects com campos, campo_value e campo_exibir são obrigatórios');
         }
         
         // 1. LIMPEZA: Limpa select de destino
@@ -1363,12 +1368,20 @@ async function processarFiltroSelect(config) {
                 }
                 
                 if (!todosVazios) {
-                    // 3. POPULAÇÃO: Popula select de destino com configuração correta para subgrupos
-                    const configSubgrupos = {
-                        campoValue: 'idsubgrupo',  // Campo correto para value
-                        campoText: 'subgrupo'      // Campo correto para text
+                    // 3. POPULAÇÃO: Popula select de destino com configuração dinâmica
+                    // Busca índice do selectDestino para obter configuração correta
+                    const indiceSelectDestino = configSelects.campos.indexOf(selectDestino);
+                    if (indiceSelectDestino === -1) {
+                        throw new Error(`Select destino '${selectDestino}' não encontrado em configSelects.campos`);
+                    }
+                    
+                    const configSelectDestino = {
+                        campoValue: configSelects.campo_value[indiceSelectDestino],  // Campo dinâmico para value
+                        campoText: configSelects.campo_exibir[indiceSelectDestino]   // Campo dinâmico para text
                     };
-                    await popularSelectComDados(selectDestino, dados, configSubgrupos);
+                    
+                    console.log(`🔧 Configuração dinâmica para '${selectDestino}':`, configSelectDestino);
+                    await popularSelectComDados(selectDestino, dados, configSelectDestino);
                         
                     // 4. SELEÇÃO AUTOMÁTICA: Seleciona primeiro item automaticamente
                     if (selectDestinoElement && selectDestinoElement.children.length > 1) {

@@ -315,7 +315,9 @@ function habilitarModoEdicao(form = null) {
 
 /**
  * 🔍 DETECTAR TIPO DE FORMULÁRIO
- * Analisa configSelects e retorna o tipo de formulário
+ * Analisa configSelects e retorna o tipo de formulário. O tipo de formulário
+ * será definido pela quantidade de selects (campos) em configSelects´.
+ * Cada tipo de formulário terá uma estratégia de população específica.
  */
 function detectarTipoFormulario(configSelects) {
     if (!configSelects || !configSelects.campos || configSelects.campos.length === 0) {
@@ -348,12 +350,12 @@ async function popularSelectPorConfiguracao(formInstance) {
         // 2. Aplicar população específica
         switch(tipo) {
             case 'SEM_SELECTS':
-                // Nenhuma população necessária
+                // Não há população de selects vai direto para população do formulário
                 console.log('📋 Formulário sem selects - nenhuma população necessária');
                 break;
 
             case '0_FILTROS&1_PESQUISA':
-                // Popula select de pesquisa simples
+                // Popula select de pesquisa com os mesmos dados que será populado o formulário
                 await popularSelect0F_1P(formInstance);
                 break;
                 
@@ -361,7 +363,7 @@ async function popularSelectPorConfiguracao(formInstance) {
                 await popularSelect1F_1P(formInstance);
                 break;
 
-            case 'MULTI_FILTROS&1_PESQUISA':
+            case 'MULTI_FILTROS&PESQUISA':
                 await popularSelectMultiF_1P(formInstance);
                 break;
                 
@@ -430,6 +432,24 @@ async function popularSelect1F_1P(formInstance) {
 async function popularSelectMultiF_1P(formInstance) {
     console.log('🌟 Populando selects com múltiplos filtros...');
     // TODO: Implementar lógica para formulários com múltiplos filtros
+
+    try {
+        if (!formInstance.configSelects) {
+            console.warn('⚠️ configSelects não encontrada na instância');
+            return;
+        }
+        
+        // Importa popularSelect do OperacoesCRUD
+        const { popularSelect } = await import('./OperacoesCRUD.js');
+        
+        // Popula select de filtro usando configSelects
+        await popularSelect(formInstance.configSelects);
+        
+        console.log('✅ Selects 1F+1P populadas com sucesso');
+        
+    } catch (error) {
+        console.error('❌ Erro ao popular selects 1F+1P:', error);
+    }
 }
 
 // Exporta as funções para uso em outros módulos
@@ -442,7 +462,8 @@ export {
     habilitarModoEdicao,
     popularSelectPorConfiguracao,
     detectarTipoFormulario,
-    garbageCollector
+    garbageCollector,
+    form_listener
 };
 
 //************************************************************
@@ -531,5 +552,141 @@ function garbageCollector(formTarget) {
         
     } catch (error) {
         console.error('❌ Erro durante limpeza de memória:', error);
+    }
+}
+
+//************************************************************
+//              CONSTRUINDO SELECTS DE FILTROS
+//************************************************************
+
+/**
+ * 🔄 PREPARAR STRING DE FILTRO: Reconstrói filtros quando select é alterada
+ * 
+ * Mantém valores até a select alterada e coloca * nas posteriores
+ * Função auxiliar necessária para o sistema de cascata de selects
+ * 
+ * @param {string} campoAlterado - Campo que foi alterado (ex: "grupo")  
+ * @param {string} novoValor - Novo valor do campo (ex: "2")
+ * @param {Object} configSelects - Configuração das selects do formulário
+ */
+function prepararStrFiltro(campoAlterado, novoValor, configSelects) {
+    try {
+        if (!window.api_info.filtros || !campoAlterado) {
+            return;
+        }
+        
+        // Encontra índice do campo alterado
+        const indice = configSelects.campos.indexOf(campoAlterado);
+        if (indice === -1) {
+            return; // Campo não encontrado
+        }
+        
+        // Split da string por AND
+        const pares = window.api_info.filtros.split(' AND ');
+        
+        // Altera valor na posição correspondente e * nas posteriores
+        for (let i = 0; i < pares.length; i++) {
+            const [campo, valor] = pares[i].split(' = ');
+            if (i < indice) {
+                // Mantém valores anteriores
+                continue;
+            } else if (i === indice) {
+                // Novo valor na posição alterada
+                // Se for string (não numérico), adiciona aspas
+                const valorFormatado = isNaN(novoValor) ? `'${novoValor}'` : novoValor;
+                pares[i] = `${campo} = ${valorFormatado}`;
+            } else {
+                // * nas posições posteriores
+                pares[i] = `${campo} = *`;
+            }
+        }
+        
+        // Reconstrói string
+        window.api_info.filtros = pares.join(' AND ');
+    } catch (error) {
+        console.error('❌ Erro em prepararStrFiltro:', error);
+    }
+}
+
+/**
+ * 🎧 FORM LISTENER: Processa eventos de alteração em selects de filtros
+ * 
+ * Função genérica que centraliza a lógica de cascata de selects em formulários.
+ * Substitui código repetitivo nos formulários por uma função reutilizável.
+ * 
+ * @param {Object} formObj - Instância do formulário (ex: formDespGlobal)
+ * @param {string} campo - Nome do campo alterado (ex: 'ano')
+ * @param {string} valor - Valor selecionado (ex: '2025')
+ * 
+ * @example
+ * // Uso em formulários:
+ * criarListener(document, 'select-alterada', async (event) => {
+ *     const { campo, valor } = event.detail;
+ *     await form_listener(formDespGlobal, campo, valor);
+ * });
+ */
+async function form_listener(formObj, campo, valor) {
+    try {
+        // ✅ RECONSTRUÇÃO INTELIGENTE DE FILTROS
+        if (window.api_info.filtros) {
+            prepararStrFiltro(campo, valor, formObj.configSelects);
+            console.log(`✅ Filtro reconstruído: "${window.api_info.filtros}"`);
+        }
+
+        // ✅ DETECÇÃO INTELIGENTE DA ÚLTIMA SELECT DE FILTRO
+        const campos = formObj.configSelects.campos;
+        const indiceAtual = campos.indexOf(campo);
+        const ultimaFiltroIndex = campos.length - 2;  // Penúltima posição (última de filtro)
+        
+        console.log(`📊 Campo: ${campo}, Índice: ${indiceAtual}, Última filtro: ${ultimaFiltroIndex}`);
+
+        // ✅ SE É A ÚLTIMA SELECT DE FILTRO → DISPARA CONSULTA
+        if (indiceAtual === ultimaFiltroIndex && indiceAtual >= 0) {
+            console.log(`🎯 ÚLTIMA SELECT DE FILTRO (${campo}) alterada - Disparando consulta ao BD!`);
+            
+            // Importa processarFiltroSelect do OperacoesCRUD
+            const { processarFiltroSelect } = await import('./OperacoesCRUD.js');
+            
+            // Popula select de pesquisa (usando lógica existente)
+            await processarFiltroSelect({
+                selectOrigem: campo,
+                selectDestino: campos[campos.length - 1], // Última select (pesquisa)
+                nomeFiltro: `id${campo}`, // Converte campo para nome do ID
+                valor: valor,
+                configSelects: formObj.configSelects // Adiciona configuração dos selects
+            });
+        }
+        // ✅ SE É UMA SELECT DE FILTRO INTERMEDIÁRIA → SÓ ATUALIZA FILTRO
+        else if (indiceAtual < ultimaFiltroIndex) {
+            console.log(`📋 Select de filtro intermediária (${campo}) - Apenas atualizando filtro`);
+            // Filtro já foi atualizado acima, não faz mais nada
+        }
+        // ✅ SE É A SELECT DE PESQUISA → POPULA FORMULÁRIO
+        else if (indiceAtual === campos.length - 1 && valor) {
+            console.log(`🎯 Select de pesquisa (${campo}) selecionada - Populando formulário`);
+            
+            // Importa popularFormulario do OperacoesCRUD
+            const { popularFormulario } = await import('./OperacoesCRUD.js');
+            
+            // Usar função pública para popular formulário com registro específico
+            try {
+                // Configurar filtro específico para o registro selecionado
+                const filtroOriginal = window.api_info.filtros;
+                window.api_info.filtros = `${formObj.configSelects.campo_value[indiceAtual]} = ${valor}`;
+                
+                // Popular formulário com o registro específico
+                await popularFormulario();
+                
+                // Restaurar filtro original
+                window.api_info.filtros = filtroOriginal;
+                
+                console.log('✅ Formulário populado via select de pesquisa');
+            } catch (error) {
+                console.error('❌ Erro ao popular formulário:', error);
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro no form_listener:', error);
     }
 }

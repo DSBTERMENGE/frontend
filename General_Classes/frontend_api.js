@@ -491,28 +491,30 @@ export default class api_fe {
 
             flow_marker('Resposta recebida do backend', dados);
 
-            if (response.ok && dados.sucesso) {
+            // Dispara alert imediatamente com a mensagem recebida
+            if (dados.sucesso) {
                 flow_marker('Processamento de extratos concluído com sucesso');
+                alert(`✅ ${dados.msg}`);
                 return {
                     sucesso: true,
-                    mensagem: dados.mensagem,
-                    dados_processados: dados.dados_processados
+                    msg: dados.msg
                 };
             } else {
-                flow_marker(`Erro no processamento: ${dados.erro} (Etapa: ${dados.etapa})`);
+                flow_marker(`Erro no processamento: ${dados.msg}`);
+                alert(`❌ ${dados.msg}`);
                 return {
                     sucesso: false,
-                    erro: dados.erro,
-                    etapa: dados.etapa || 'desconhecida'
+                    msg: dados.msg
                 };
             }
 
         } catch (error) {
             error_catcher('Erro no processar_extratos_pdf', error);
+            const msgErro = `Erro de conexão: ${error.message}. Verifique o arquivo log_de_erros.md para detalhes.`;
+            alert(`❌ ${msgErro}`);
             return {
                 sucesso: false,
-                erro: `Erro de conexão: ${error.message}`,
-                etapa: 'conexao'
+                msg: msgErro
             };
         }
     }

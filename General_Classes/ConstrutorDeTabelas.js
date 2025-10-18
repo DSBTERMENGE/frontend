@@ -517,7 +517,7 @@ export class GridDados {
                 conteudo = config;
             }
 
-            celulasResultado += `<td style="width:${larguraVW}vw; text-align:${alinhamento}; font-weight: bold; background-color: #b3d9ff; box-sizing:border-box; padding: 0.5rem; border: 0.0625rem solid #666; font-size: 0.875rem;">${conteudo}</td>`;
+            celulasResultado += `<td style="width:${larguraVW}vw; text-align:${alinhamento}; font-weight: bold; background-color: #b3d9ff; box-sizing:border-box; padding: 0.25rem; border: 0.0625rem solid #666; font-size: 0.875rem; line-height: 1.2;">${conteudo}</td>`;
         });
 
         return `<tfoot><tr style="border-top: 0.125rem solid #666;">${celulasResultado}</tr></tfoot>`;
@@ -732,6 +732,7 @@ export class GridDados {
 
     /**
      * Cria header visual da tabela com título e descrição
+     * Layout auto-wrap: navegador decide se cabe em linha ou quebra automaticamente
      * Diferente do <thead> - este é o cabeçalho visual acima da tabela
      * Usa this.titulo e this.descricao
      * @returns {string} HTML do header visual
@@ -741,14 +742,36 @@ export class GridDados {
             return ''; // Sem header se não há título nem descrição
         }
         
-        let header = '<div class="tabela-header" style="margin-bottom: 1rem; text-align: center;">';
+        const larguraTabela = this._calcularLarguraTotal();
+        
+        let header = `<div class="tabela-header" style="
+            margin-bottom: 0.75rem; 
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            width: ${larguraTabela}vw;
+        ">`;
         
         if (this.titulo) {
-            header += `<h2 style="margin: 0 0 0.5rem 0; color: #003366; font-size: 1.25rem; font-weight: bold;">${this.titulo}</h2>`;
+            header += `<h2 style="
+                margin: 0; 
+                color: #003366; 
+                font-size: 1.25rem; 
+                font-weight: bold;
+                white-space: nowrap;
+            ">${this.titulo}</h2>`;
         }
         
         if (this.descricao) {
-            header += `<p style="margin: 0; color: #666; font-size: 0.875rem; font-style: italic;">${this.descricao}</p>`;
+            header += `<p style="
+                margin: 0; 
+                color: #666; 
+                font-size: 0.875rem; 
+                font-style: italic;
+                white-space: nowrap;
+            ">${this.descricao}</p>`;
         }
         
         header += '</div>';
@@ -763,6 +786,8 @@ export class GridDados {
     
     /**
      * Calcula a largura total da tabela em vw
+     * Esta é a largura real da tabela baseada na soma das colunas
+     * O container se adaptará a esta largura + margem de segurança
      * @returns {number} Largura total em vw (mínimo 30vw)
      */
     _calcularLarguraTotal() {
@@ -788,11 +813,11 @@ export class GridDados {
                 background-color: #003366;
                 color: white;
                 font-weight: bold;
-                padding: 0.5rem;
+                padding: 0.25rem;
                 border: 0.0625rem solid #ddd;
                 box-sizing: border-box;
                 font-size: 0.875rem;
-                line-height: 1.2;
+                line-height: 1.1;
             ">${titulo}</th>`;
         });
         
@@ -820,12 +845,12 @@ export class GridDados {
                 tbody += `<td style="
                     width: ${larguraVW}vw;
                     text-align: ${alinhamento};
-                    padding: 0.5rem;
+                    padding: 0.25rem;
                     border: 0.0625rem solid #ddd;
                     box-sizing: border-box;
                     font-size: 0.875rem;
-                    line-height: 1.4;
-                    min-height: 2.5rem;
+                    line-height: 1.2;
+                    min-height: 1.5rem;
                 ">${conteudo}</td>`;
             });
             
@@ -837,14 +862,27 @@ export class GridDados {
     
     /**
      * Calcula limites máximos para evitar overflow no canvas
+     * Container se adapta à tabela, respeitando limites do canvas
      * @returns {Object} {maxWidth, maxHeight} em vw/vh
      */
     _calcularLimitesCanvas() {
-        const larguraTotalVW = this._calcularLarguraTotal();
-        const maxWidth = Math.min(larguraTotalVW, 95); // Max 95vw do viewport
-        const maxHeight = 80; // Max 80vh do viewport
+        const larguraTabelaVW = this._calcularLarguraTotal();
+        const margemSeguranca = 3; // 3vw para padding + margem
+        const larguraContainerVW = larguraTabelaVW + margemSeguranca;
         
-        return { maxWidth, maxHeight };
+        // Limites do canvas (considerando espaço disponível real)
+        const limiteCanvasVW = 90; // 90vw deixa margem para interface
+        const limiteCanvasVH = 80; // 80vh para altura
+        
+        const maxWidth = Math.min(larguraContainerVW, limiteCanvasVW);
+        const maxHeight = limiteCanvasVH;
+        
+        return { 
+            maxWidth, 
+            maxHeight, 
+            larguraTabela: larguraTabelaVW,
+            precisaScroll: larguraContainerVW > limiteCanvasVW
+        };
     }
     
     /**
@@ -854,13 +892,15 @@ export class GridDados {
      * @returns {string} HTML do container com overflow controlado
      */
     _criarContainerComOverflow(conteudoTabela) {
-        const { maxWidth, maxHeight } = this._calcularLimitesCanvas();
+        const { maxWidth, maxHeight, larguraTabela, precisaScroll } = this._calcularLimitesCanvas();
         
         return `
             <div class="tabela-wrapper" style="
+                width: fit-content;
                 max-width: ${maxWidth}vw;
                 max-height: ${maxHeight}vh;
-                overflow: auto;
+                overflow-x: ${precisaScroll ? 'auto' : 'hidden'};
+                overflow-y: auto;
                 border: 1px solid #ccc;
                 border-radius: 4px;
                 box-sizing: border-box;

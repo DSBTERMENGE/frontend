@@ -63,7 +63,13 @@ import { error_catcher } from './Debugger.js';
  * @property {Array<number>} largCampos - Larguras dos campos em rem
  * @property {{x: number, y: number}} posicaoCanvas - Posição do formulário no canvas (vw/vh)
  * @property {Array<string>} grupoBotoes - Grupos de botões: ['S'|'N', 'S'|'N', 'S'|'N'] para [Encerrar, Navegação, CRUD]
- * @property {Object|null} configSelects - Config das selects: {labels, campos, larguras, arranjo}
+ * @property {Object|null} configSelects - Configuração completa das selects do formulário
+ * @property {Array<string>} configSelects.labels - Rótulos exibidos para cada select ex.:['Grupo', 'SubGrupo']
+ * @property {Array<string>} configSelects.campos - Nome dos campos que se usará para popular os select. ex.: ['grupo', 'subgrupo'] 
+ * @property {Array<string>} configSelects.larguras - Larguras CSS de cada select. ex.: ['180px', '200px']
+ * @property {string} configSelects.arranjo - Layout visual dos selects: 'linha' (horizontal) | 'coluna' (vertical)
+ * @property {Array<string>} configSelects.campo_value - Campos da consulta informados no evento change a serem usados na filtragem da select seguinte. ex.: ['idgrupo', 'idsubgrupo'] - valores sem semântica para usuário, geralmente IDs numéricos
+ * @property {Array<string>} configSelects.campo_exibir - Campos da consulta que são exibidos nas selects por terem maior conteúdo semântico.(Observar no uso se esta propriedade não está em duplicidade com campo) ex.: ['grupo', 'subgrupo'] - textos com semântica para usuário, nomes descritivos
  * @property {CriarSelects|null} objSelect - Instância do sistema de selects (criado automaticamente)
  * @property {CriarBtnRodape|null} criarBotoes - Instância do sistema de botões (criado no render)
  * @property {Array<HTMLElement>} fields - Array com elementos DOM dos campos (preenchido no render)
@@ -87,7 +93,9 @@ export class FormComum extends FormularioBase {
      * @param {{x: number, y: number}} [posicaoCanvas={x: 3, y: 5}] - Posição do form no canvas
      * @param {Object} [opcoes={}] - Configurações avançadas do formulário
      * @param {Array<'S'|'N'>} [opcoes.grupoBotoes=['S','N','S']] - Grupos [Encerrar, Navegação, CRUD]
-     * @param {Object} [opcoes.selects] - Config selects: {labels, campos, larguras, arranjo}
+     * @param {Object} [opcoes.selects] - Configuração completa das selects: {labels, campos, larguras, arranjo, campo_value, campo_exibir}
+     * @param {Array<string>} [opcoes.selects.campo_value] - Campos BD para VALUE das options (IDs/chaves sem semântica) ['idgrupo', 'idsubgrupo']
+     * @param {Array<string>} [opcoes.selects.campo_exibir] - Campos BD para TEXT das options (nomes com semântica) ['grupo', 'subgrupo']
      * 
      * @example
      * // ✅ MODO RECOMENDADO: Property-based configuration
@@ -101,6 +109,15 @@ export class FormComum extends FormularioBase {
      * form.alinhamento = ['H', 'H'];  
      * form.largCampos = [20, 15];
      * form.grupoBotoes = ['S', 'N', 'S'];
+     * // Configuração de selects com população de dados
+     * form.configSelects = {
+     *   labels: ['Grupo', 'SubGrupo'],
+     *   campos: ['grupo', 'subgrupo'],
+     *   larguras: ['180px', '200px'],
+     *   arranjo: 'linha',
+     *   campo_value: ['idgrupo', 'idsubgrupo'],  // ← IDs do banco (sem semântica)
+     *   campo_exibir: ['grupo', 'subgrupo']      // ← Nomes para usuário (com semântica)
+     * };
      * form.render(); // ← Renderização MANUAL
      * 
      * @example  
@@ -225,8 +242,16 @@ export class FormComum extends FormularioBase {
         
         /**
          * @type {Object|null}
-         * @description Configuração de selects: {labels, campos, larguras, arranjo}
-         * @example form.configSelects = {labels: ['Grupo'], campos: ['grupo'], larguras: [20], arranjo: 'H'}
+         * @description Configuração completa de selects: layout visual + mapeamento de dados do BD
+         * @example 
+         * form.configSelects = {
+         *   labels: ['Grupo', 'SubGrupo'],              // Rótulos visuais
+         *   campos: ['grupo', 'subgrupo'],              // IDs dos elementos
+         *   larguras: ['180px', '200px'],               // Tamanhos CSS
+         *   arranjo: 'linha',                           // Layout: linha/coluna
+         *   campo_value: ['idgrupo', 'idsubgrupo'],     // Campos BD → VALUE (IDs)
+         *   campo_exibir: ['grupo', 'subgrupo']         // Campos BD → TEXT (nomes)
+         * }
          */
         this.configSelects = opcoes.selects || null;
         
