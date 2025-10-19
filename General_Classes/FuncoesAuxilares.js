@@ -1,3 +1,5 @@
+import { _popularFormularioAutomaticoPorIndice } from './OperacoesCRUD.js';
+
 //=================FUNÇÕES AUXILIARES RELATIVAS A EVENTOS=========================//
 
 // ============= GERENCIAMENTO DE EVENTOS =============
@@ -625,7 +627,7 @@ function prepararStrFiltro(campoAlterado, novoValor, configSelects) {
  *     await form_listener(formDespGlobal, campo, valor);
  * });
  */
-async function form_listener(formObj, campo, valor) {
+async function form_listener(formObj, campo, valor, event) {
     try {
         // ✅ RECONSTRUÇÃO INTELIGENTE DE FILTROS
         if (window.api_info.filtros) {
@@ -665,21 +667,12 @@ async function form_listener(formObj, campo, valor) {
         else if (indiceAtual === campos.length - 1 && valor) {
             console.log(`🎯 Select de pesquisa (${campo}) selecionada - Populando formulário`);
             
-            // Importa popularFormulario do OperacoesCRUD
-            const { popularFormulario } = await import('./OperacoesCRUD.js');
+            // Obtém o índice da opção selecionada diretamente do evento
+            const indiceSelecionado = event.detail.objSelect.selectedIndex - 1; // -1 porque primeira opção é "Selecione..."
             
-            // Usar função pública para popular formulário com registro específico
             try {
-                // Configurar filtro específico para o registro selecionado
-                const filtroOriginal = window.api_info.filtros;
-                window.api_info.filtros = `${formObj.configSelects.campo_value[indiceAtual]} = ${valor}`;
-                
-                // Popular formulário com o registro específico
-                await popularFormulario();
-                
-                // Restaurar filtro original
-                window.api_info.filtros = filtroOriginal;
-                
+                // Chama função que recebe índice e atualiza reg_num automaticamente
+                _popularFormularioAutomaticoPorIndice(indiceSelecionado);
                 console.log('✅ Formulário populado via select de pesquisa');
             } catch (error) {
                 console.error('❌ Erro ao popular formulário:', error);

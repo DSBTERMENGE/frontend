@@ -58,7 +58,7 @@ INTEGRAÇÃO:
 //                    VARIÁVEIS GLOBAIS
 //************************************************************
 
-let dadosDisponiveis = [];    // Dados recebidos da API
+let dadosDisponiveis = [];    // Dados recebidos da API. Este array é atualizado após cada operação CRUD
 let reg_num = 0;             // Registro atual (BASE 0) 
 let botao_ativo = null;      // Último botão clicado
 let listenerConfigurado = false;  // Evita múltiplos listeners
@@ -401,7 +401,7 @@ async function processarDeletar() {
 // ************************************************************
 
 /**
- * 📝 Popula formulário com dados da API
+ * 📝 Popula formulário com dados do primeiro (indice 0) registro do array retornado da API
  * @returns {Object} Resultado da operação
  */
 async function popularFormulario() {
@@ -427,11 +427,6 @@ async function popularFormulario() {
                 dadosDisponiveis = dadosRecebidos || [];
 
                 _popularFormularioAutomatico(dadosRecebidos[0]);
-                
-                // Popula select de navegação se existir função
-                if (typeof _popularSelectNavegacao === 'function') {
-                    _popularSelectNavegacao("grupos", dadosRecebidos);
-                }
                 
                 console.log('✅ População concluída com sucesso - Formulário populado com dados');
                 
@@ -524,6 +519,9 @@ async function atualizar_registro() {
                 dadosOriginaisRegistro = { ...dadosDisponiveis[reg_num] };
             }
             
+            // 🔄 REPOPULAR SELECT DE PESQUISA após atualização bem-sucedida
+            _repopularSelectDePesquisa();
+            
             return {
                 sucesso: true,
                 mensagem: resultadoAPI.mensagem || "Registro atualizado com sucesso"
@@ -604,6 +602,9 @@ async function incluir_registro_novo() {
             // Sair do modo inclusão
             _setModoEditarNovo(false);
             botao_ativo = '';
+            
+            // 🔄 REPOPULAR SELECT DE PESQUISA após inserção bem-sucedida
+            _repopularSelectDePesquisa();
             
             return {
                 sucesso: true,
@@ -1129,11 +1130,149 @@ function _popularFormularioAutomatico(dados) {
     dadosOriginaisRegistro = { ...dados };
 }
 
+/**
+ * 🔄 POPULAR FORMULÁRIO AUTOMATICAMENTE POR ÍNDICE
+ * Versão que recebe índice a partir de FuncoesAuxiliares.js e atualiza reg_num automaticamente
+ * @param {number} indice - Índice do registro no array dadosDisponiveis
+ */
+function _popularFormularioAutomaticoPorIndice(indice) {
+    // Validação básica
+    if (!Array.isArray(dadosDisponiveis) || indice < 0 || indice >= dadosDisponiveis.length) {
+        console.warn(`⚠️ Índice inválido (${indice}) ou dadosDisponiveis não disponível`);
+        return;
+    }
+    
+    // Atualiza reg_num para sincronizar navegação
+    reg_num = indice;
+    
+    // Chama função original para popular o formulário
+    _popularFormularioAutomatico(dadosDisponiveis[indice]);
+    
+    console.log(`✅ Formulário populado com registro índice ${indice}`);
+}
+
 
  // 🚨 ALERTA QUE O FORMULÁRIO ESTÁ EM EDIÇÃO OU INCLUSÃO
 function AlertaEstadoDeEdicao_Inclusao() {
     const operacao = botao_ativo === 'editar' ? 'edição' : 'inclusão';
     alert(`Um processo de ${operacao} está em andamento. Para sair do processo clique em "Encerrar" ou "Salvar".`);
+}
+
+/**
+ * 🔄 REPOPULAR SELECT DE PESQUISA APÓS OPERAÇÕES CRUD
+ * 
+ * PROPÓSITO:
+ * Esta função mantém a select de pesquisa sincronizada com o estado atual do formulário
+ * após operações de CRUD (incluir, atualizar, deletar) que podem alterar os dados.
+ * 
+ * COMPORTAMENTOS ESPECÍFICOS:
+ * 
+ * 📌 INSERÇÃO DE REGISTRO:
+ * - Array dadosDisponiveis já foi atualizado pelo backend (ordenado)
+ * - reg_num aponta para o novo registro inserido
+ * - Select é repopulada com dados frescos + mantém seleção no registro atual
+ * 
+ * 📌 ALTERAÇÃO DE REGISTRO:
+ * - Usuário pode alterar campo que muda ordenação (ex: nome de A→Z)
+ * - Backend retorna array reordenado, reg_num já recalculado
+ * - Select acompanha a nova ordenação + mantém foco no registro editado
+ * 
+ * 📌 NAVEGAÇÃO NORMAL:
+ * - Select sempre reflete o registro atualmente exibido no formulário
+ * - Sincronização bidirecional: formulário ↔ select
+ * 
+ * DETECÇÃO AUTOMÁTICA:
+ * - Identifica select de pesquisa como último campo em configSelects
+ * - Exemplo: ['grupos', 'subgrupos'] → select de pesquisa = 'subgrupos'
+ * - Funciona para qualquer configuração de formulário
+ * 
+ * REPOPULAÇÃO SILENCIOSA:
+ * - NÃO dispara eventos 'change' que causariam reprocessamento
+ * - Atualização direta via selectElement.value (sem eventos)
+ * - Evita loops e interferências no estado do formulário
+ * 
+ * FONTE DE DADOS:
+ * - Usa dadosDisponiveis (array local já sincronizado)
+ * - Não faz nova consulta ao backend (performance)
+ * 
+ * USO TÍPICO:
+ * - Chamada após incluir_registro_novo() bem-sucedido
+ * - Chamada após atualizar_registro() bem-sucedido
+ * - Chamada após processarDeletar() quando necessário
+ * 
+ * @returns {boolean} true = sucesso, false = erro ou select não encontrada
+ */
+function _repopularSelectDePesquisa() {
+    try {
+        // 🔍 VALIDAÇÕES INICIAIS
+        if (!window.api_info?.configSelects?.campos) {
+            console.log('📋 Formulário não possui selects configuradas - skip repopulação');
+            return true; // Não é erro, apenas não há selects
+        }
+        
+        if (!dadosDisponiveis || dadosDisponiveis.length === 0) {
+            console.log('⚠️ dadosDisponiveis vazio - skip repopulação select');
+            return true; // Não é erro, apenas não há dados
+        }
+        
+        if (reg_num < 0 || reg_num >= dadosDisponiveis.length) {
+            console.log('⚠️ reg_num inválido - skip repopulação select');
+            return true; // Não é erro, posição inválida
+        }
+        
+        // 🎯 DETECÇÃO AUTOMÁTICA DA SELECT DE PESQUISA
+        const configSelects = window.api_info.configSelects;
+        const campos = configSelects.campos;
+        
+        // Select de pesquisa = último campo configurado
+        const indiceSelectPesquisa = campos.length - 1;
+        const nomeSelectPesquisa = campos[indiceSelectPesquisa];
+        
+        console.log(`🔄 Repopulando select de pesquisa: '${nomeSelectPesquisa}'`);
+        
+        // 📍 LOCALIZAR ELEMENTO SELECT NO DOM
+        const selectElement = obterElementoSelect(nomeSelectPesquisa);
+        if (!selectElement) {
+            console.warn(`⚠️ Select '${nomeSelectPesquisa}' não encontrada no DOM`);
+            return false;
+        }
+        
+        // 🧹 LIMPAR SELECT (mantém "Selecione...")
+        selectElement.innerHTML = '<option value="">Selecione...</option>';
+        
+        // 🗂️ CONFIGURAÇÃO PARA MAPEAMENTO DOS DADOS
+        const configMapeamento = {
+            campoValue: configSelects.campo_value[indiceSelectPesquisa],
+            campoText: configSelects.campo_exibir[indiceSelectPesquisa]
+        };
+        
+        console.log(`🔧 Configuração mapeamento:`, configMapeamento);
+        
+        // 📊 MAPEAR E POPULAR DADOS
+        const dadosMapeados = mapeadorDeDados(dadosDisponiveis, configMapeamento);
+        
+        dadosMapeados.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.text;
+            selectElement.appendChild(option);
+        });
+        
+        // 🎯 SINCRONIZAÇÃO SILENCIOSA COM REGISTRO ATUAL
+        const registroAtual = dadosDisponiveis[reg_num];
+        const valorAtual = registroAtual[configMapeamento.campoValue];
+        
+        // ✅ SELEÇÃO SILENCIOSA (SEM DISPARAR EVENTOS)
+        selectElement.value = valorAtual;
+        
+        console.log(`✅ Select '${nomeSelectPesquisa}' repopulada: ${dadosMapeados.length} opções, valor selecionado: '${valorAtual}'`);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Erro ao repopular select de pesquisa:', error);
+        return false;
+    }
 }
 
 /* ============================================================
@@ -1560,7 +1699,9 @@ export {
     construirFiltroInicial,
     resetarCamposPosteriores,
     // Função para popular primeira select
-    popularSelect
+    popularSelect,
+    // Função interna para usar em FuncoesAuxilares (substituída)
+    _popularFormularioAutomaticoPorIndice
 };
 
 

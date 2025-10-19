@@ -467,7 +467,8 @@ export class CriarSelects {
                     valor: valor,
                     selecionados: selecionados,
                     camposSelects: this.campos,  // Lista de todos os campos
-                    idSelect: elemento ? elemento.id : null  // ID HTML da select
+                    idSelect: elemento ? elemento.id : null,  // ID HTML da select
+                    objSelect: elemento  // Referência direta ao elemento select
                 },
                 bubbles: true  // Permite que o evento suba na árvore DOM
             });
