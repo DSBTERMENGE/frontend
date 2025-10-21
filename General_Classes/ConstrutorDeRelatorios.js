@@ -7,6 +7,12 @@
  */
 
 import { CriarBtnRodape } from './ConstrutorBtnRodapeForms.js';
+import { 
+    executarOperacao, 
+    determinarOperacaoColuna, 
+    obterLabelOperacao, 
+    formatarResultado 
+} from './FuncoesAuxiliaresRelatorios.js';
 
 export class GridDados {
     /**
@@ -641,21 +647,58 @@ export class GridDados {
 
     /**
      * Renderização completa da tabela (OVERRIDE da classe base)
+     * Sequência organizada: Preparação → Cálculos → Renderização
      */
     render() {
-        // Configuração específica da tabela - NÃO chama super.render() para evitar conflitos
-        this.configurarContainer();
-        this.posicionarNoCanvas(this.posicaoCanvas.x, this.posicaoCanvas.y);
-        this.exibir();
+        // 🚀 EXECUÇÃO DA SEQUÊNCIA COMPLETA DE RENDERIZAÇÃO
         
-        // Aplica título e descrição específicos da tabela
-        if (this.descricao) {
-            this.configurarHeader(this.titulo, this.descricao);
-        } else {
-            this.configurarHeader(this.titulo);
+        // 1️⃣ PREPARAÇÃO: Conecta ao container se necessário
+        this._conectarContainer();
+        
+        // 2️⃣ VALIDAÇÃO: Verifica se há dados para renderizar
+        if (!this.dados || this.dados.length === 0) {
+            this.container.innerHTML = '<div class="tabela-vazia">Nenhum dado disponível para exibição.</div>';
+            return;
         }
         
-        // Footer tem sistema de mensagens
+        // 3️⃣ CÁLCULOS: Processa operações matemáticas (se configuradas)
+        if (this.colunasComOperacao && this.colunasComOperacao.length > 0) {
+            this._processarOperacoesMatematicas();
+        }
+        
+        // 4️⃣ MONTAGEM: Gera HTML completo (Header + Tabela + Footer)
+        const htmlCompleto = this._gerarTabelaCompleta();
+        
+        // 5️⃣ RENDERIZAÇÃO: Materializa no DOM
+        this.container.innerHTML = htmlCompleto;
+        
+        // 6️⃣ FINALIZAÇÃO: Remove classe hidden e aplica posicionamento
+        this.container.classList.remove('hidden');
+        
+        if (this.posicao.length > 0 || this.posicao.length === 0) {
+            this._posicionarTabela();
+        }
+    }
+    
+    /**
+     * Processa todas as operações matemáticas antes da renderização
+     * Garante que todos os cálculos estejam prontos
+     */
+    _processarOperacoesMatematicas() {
+        // Pré-calcula todas as operações para otimizar a renderização
+        this.colunasComOperacao.forEach(nomeColuna => {
+            const operacao = this._determinarOperacaoColuna(nomeColuna);
+            const resultado = this._executarOperacao(nomeColuna, operacao);
+            
+            // Armazena resultado em cache para uso posterior (opcional)
+            if (!this._cacheOperacoes) {
+                this._cacheOperacoes = {};
+            }
+            this._cacheOperacoes[nomeColuna] = {
+                operacao: operacao,
+                resultado: resultado
+            };
+        });
     }
 
     /*
@@ -778,7 +821,146 @@ export class GridDados {
         return header;
     }
 
-    /*
+    /**
+     * Cria footer da tabela com operações matemáticas nas colunas especificadas
+     * Mapeia automaticamente o tipo de operação baseado no nome da coluna
+     * Usa this.colunasComOperacao para determinar quais colunas calcular
+     * @returns {string} HTML do footer com resultados das operações
+     */
+    _criarFooterTabela() {
+        if (!this.colunasComOperacao || this.colunasComOperacao.length === 0) {
+            return ''; // Sem footer se não há colunas para calcular
+        }
+
+        const larguraTabela = this._calcularLarguraTotal();
+        
+        let footer = `<div class="tabela-footer" style="
+            margin-top: 0.75rem; 
+            padding: 0.75rem;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: ${larguraTabela}vw;
+            box-sizing: border-box;
+        ">`;
+        
+        // Para cada coluna com operação, calcula o resultado
+        this.colunasComOperacao.forEach(nomeColuna => {
+            const operacao = this._determinarOperacaoColuna(nomeColuna);
+            const resultado = this._executarOperacao(nomeColuna, operacao);
+            
+            footer += `<div style="
+                display: inline-block;
+                margin-right: 2rem;
+                color: #003366;
+                font-weight: bold;
+            ">
+                <span style="color: #666; font-weight: normal;">${this._obterLabelOperacao(operacao)}:</span>
+                <span>${this._formatarResultado(resultado, nomeColuna)}</span>
+            </div>`;
+        });
+        
+        footer += '</div>';
+        return footer;
+    }
+
+    /**
+     * Determina automaticamente o tipo de operação baseado no nome da coluna
+     * @param {string} nomeColuna - Nome da coluna
+     * @returns {string} Tipo de operação (Tot, Med, Max, Min, Cnt, etc.)
+     */
+    _determinarOperacaoColuna(nomeColuna) {
+        const nomeMinusculo = nomeColuna.toLowerCase();
+        
+        // Mapeamento inteligente baseado no nome da coluna
+        if (nomeMinusculo.includes('valor') || 
+            nomeMinusculo.includes('preco') || 
+            nomeMinusculo.includes('total') ||
+            nomeMinusculo.includes('custo') ||
+            nomeMinusculo.includes('receita') ||
+            nomeMinusculo.includes('despesa')) {
+            return 'Tot'; // Soma para valores monetários
+        }
+        
+        if (nomeMinusculo.includes('quantidade') || 
+            nomeMinusculo.includes('qtd') ||
+            nomeMinusculo.includes('numero') ||
+            nomeMinusculo.includes('num')) {
+            return 'Tot'; // Soma para quantidades
+        }
+        
+        if (nomeMinusculo.includes('media') || 
+            nomeMinusculo.includes('avg')) {
+            return 'Med'; // Média quando explicitamente solicitada
+        }
+        
+        if (nomeMinusculo.includes('data') || 
+            nomeMinusculo.includes('date')) {
+            return 'Cnt'; // Contagem para datas
+        }
+        
+        // Padrão: soma para campos numéricos, contagem para outros
+        return 'Tot';
+    }
+
+    /**
+     * Obtém o label descritivo para a operação
+     * @param {string} operacao - Tipo de operação
+     * @returns {string} Label para exibição
+     */
+    _obterLabelOperacao(operacao) {
+        const labels = {
+            'Tot': 'Total',
+            'Med': 'Média', 
+            'Max': 'Máximo',
+            'Min': 'Mínimo',
+            'Cnt': 'Contagem',
+            'Sum': 'Soma',
+            'Avg': 'Média',
+            'StdDev': 'Desvio Padrão',
+            'Var': 'Variância',
+            'Range': 'Amplitude',
+            'First': 'Primeiro',
+            'Last': 'Último'
+        };
+        
+        return labels[operacao] || operacao;
+    }
+
+    /**
+     * Formata o resultado da operação para exibição
+     * @param {number} resultado - Resultado da operação
+     * @param {string} nomeColuna - Nome da coluna (para contexto de formatação)
+     * @returns {string} Resultado formatado
+     */
+    _formatarResultado(resultado, nomeColuna) {
+        const nomeMinusculo = nomeColuna.toLowerCase();
+        
+        // Se é valor monetário, formata como moeda
+        if (nomeMinusculo.includes('valor') || 
+            nomeMinusculo.includes('preco') || 
+            nomeMinusculo.includes('custo') ||
+            nomeMinusculo.includes('receita') ||
+            nomeMinusculo.includes('despesa')) {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(resultado);
+        }
+        
+        // Se é contagem, não usa decimais
+        if (Number.isInteger(resultado)) {
+            return resultado.toLocaleString('pt-BR');
+        }
+        
+        // Padrão: 2 casas decimais
+        return resultado.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    /**
     *===============================================================
     *                            GERADORES DE HTML
     *===============================================================
@@ -914,18 +1096,26 @@ export class GridDados {
     }
     
     /**
-     * Gera tabela completa com header visual, tabela e controle de overflow
+     * Gera tabela completa com header visual, tabela, footer e controle de overflow
+     * Sequência organizada: Header → Tabela → Footer → Render
      * @returns {string} HTML completo da tabela com container
      */
     _gerarTabelaCompleta() {
+        // 1️⃣ PREPARAÇÃO: Header Visual (título e descrição)
         const headerVisual = this._criarHeaderTabela();
+        
+        // 2️⃣ PREPARAÇÃO: Estrutura da Tabela
         const thead = this._gerarHTMLHeader();
         const tbody = this._gerarHTMLBody();
-        const tfoot = this._gerarLinhaResultados();
+        // const tfoot = this._gerarLinhaResultados(); // Removido - usando footer externo
         
-        // Calcula largura da tabela (pode exceder viewport)
+        // 3️⃣ PREPARAÇÃO: Footer com Operações (totais, médias, etc.)
+        const footerOperacoes = this._criarFooterTabela();
+        
+        // 4️⃣ CÁLCULOS: Largura da tabela (pode exceder viewport)
         const larguraTotalVW = this._calcularLarguraTotal();
         
+        // 5️⃣ MONTAGEM: Estrutura HTML completa
         const conteudoTabela = `
             ${headerVisual}
             <table style="
@@ -938,10 +1128,13 @@ export class GridDados {
             ">
                 ${thead}
                 ${tbody}
-                ${tfoot}
             </table>
+            ${footerOperacoes}
         `;
         
+        // 6️⃣ RENDERIZAÇÃO: Container com overflow e HTML final
         return this._criarContainerComOverflow(conteudoTabela);
     }
+
+   
 }
