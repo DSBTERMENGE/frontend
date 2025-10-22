@@ -370,3 +370,18 @@ export function formatarResultado(resultado, nomeColuna) {
         maximumFractionDigits: 2
     });
 }
+
+/**
+ * Cria título e descrição do relatório na divTituloRelatorio
+ * @param {string} titulo - Título principal do relatório
+ * @param {string} descricao - Descrição/subtítulo do relatório (opcional)
+ */
+export function CriaTituloDeFormulario(titulo, descricao) {
+    const divTitulo = document.getElementById('divTituloRelatorio');
+    if (!divTitulo) return;
+    
+    divTitulo.innerHTML = `
+        <h2 style="margin: 0 0 0.5rem 0; color: #003366; font-size: 1.5rem; text-align: center;">${titulo}</h2>
+        ${descricao ? `<p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem; text-align: center; font-style: italic;">${descricao}</p>` : ''}
+    `;
+}

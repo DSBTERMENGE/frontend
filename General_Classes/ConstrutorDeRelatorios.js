@@ -152,10 +152,10 @@ export class GridDados {
      * @throws {Error} Se container não for encontrado no DOM
      */
     _conectarContainer() {
-        this.container = document.getElementById('divTabela');
+        this.container = document.getElementById('divRelatorio');
         
         if (!this.container) {
-            throw new Error('Container #divTabela não encontrado no DOM. Verifique se o HTML possui este elemento.');
+            throw new Error('Container #divRelatorio não encontrado no DOM. Verifique se o HTML possui este elemento.');
         }
         
         return this.container;
@@ -657,7 +657,10 @@ export class GridDados {
         
         // 2️⃣ VALIDAÇÃO: Verifica se há dados para renderizar
         if (!this.dados || this.dados.length === 0) {
-            this.container.innerHTML = '<div class="tabela-vazia">Nenhum dado disponível para exibição.</div>';
+            // Preserva o conteúdo da divTituloRelatorio se existir
+            const divTitulo = document.getElementById('divTituloRelatorio');
+            const tituloHTML = divTitulo ? divTitulo.outerHTML : '';
+            this.container.innerHTML = tituloHTML + '<div class="tabela-vazia">Nenhum dado disponível para exibição.</div>';
             return;
         }
         
@@ -670,7 +673,10 @@ export class GridDados {
         const htmlCompleto = this._gerarTabelaCompleta();
         
         // 5️⃣ RENDERIZAÇÃO: Materializa no DOM
-        this.container.innerHTML = htmlCompleto;
+        // Preserva o conteúdo da divTituloRelatorio se existir
+        const divTitulo = document.getElementById('divTituloRelatorio');
+        const tituloHTML = divTitulo ? divTitulo.outerHTML : '';
+        this.container.innerHTML = tituloHTML + htmlCompleto;
         
         // 6️⃣ FINALIZAÇÃO: Remove classe hidden e aplica posicionamento
         this.container.classList.remove('hidden');
@@ -687,8 +693,8 @@ export class GridDados {
     _processarOperacoesMatematicas() {
         // Pré-calcula todas as operações para otimizar a renderização
         this.colunasComOperacao.forEach(nomeColuna => {
-            const operacao = this._determinarOperacaoColuna(nomeColuna);
-            const resultado = this._executarOperacao(nomeColuna, operacao);
+            const operacao = determinarOperacaoColuna(nomeColuna);
+            const resultado = executarOperacao(this.dados, nomeColuna, operacao);
             
             // Armazena resultado em cache para uso posterior (opcional)
             if (!this._cacheOperacoes) {
@@ -713,8 +719,11 @@ export class GridDados {
         // Gera HTML completo com controle de overflow
         const htmlCompleto = this._gerarTabelaCompleta();
         
-        // Insere no container
-        this.container.innerHTML = htmlCompleto;
+        // Insere no container preservando título
+        // Preserva o conteúdo da divTituloRelatorio se existir
+        const divTitulo = document.getElementById('divTituloRelatorio');
+        const tituloHTML = divTitulo ? divTitulo.outerHTML : '';
+        this.container.innerHTML = tituloHTML + htmlCompleto;
         
         // Remove classe hidden para mostrar tabela
         this.container.classList.remove('hidden');
@@ -846,8 +855,8 @@ export class GridDados {
         
         // Para cada coluna com operação, calcula o resultado
         this.colunasComOperacao.forEach(nomeColuna => {
-            const operacao = this._determinarOperacaoColuna(nomeColuna);
-            const resultado = this._executarOperacao(nomeColuna, operacao);
+            const operacao = determinarOperacaoColuna(nomeColuna);
+            const resultado = executarOperacao(this.dados, nomeColuna, operacao);
             
             footer += `<div style="
                 display: inline-block;
@@ -855,8 +864,8 @@ export class GridDados {
                 color: #003366;
                 font-weight: bold;
             ">
-                <span style="color: #666; font-weight: normal;">${this._obterLabelOperacao(operacao)}:</span>
-                <span>${this._formatarResultado(resultado, nomeColuna)}</span>
+                <span style="color: #666; font-weight: normal;">${obterLabelOperacao(operacao)}:</span>
+                <span>${formatarResultado(resultado, nomeColuna)}</span>
             </div>`;
         });
         
