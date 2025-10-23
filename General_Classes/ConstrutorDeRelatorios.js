@@ -14,6 +14,9 @@ import {
     formatarResultado 
 } from './FuncoesAuxiliaresRelatorios.js';
 
+// ===== CONTADOR GLOBAL PARA CONTAINERS ÚNICOS =====
+let contadorContainers = 0;
+
 export class GridDados {
     /**
      * Construtor da classe GridDados - Sistema avançado de exibição de dados tabulares
@@ -146,24 +149,42 @@ export class GridDados {
     // ===== MÉTODOS BÁSICOS DE UI (substituem funcionalidades do FormularioBase) =====
     
     /**
-     * Conecta ao container HTML existente (#divTabela)
+     * Conecta a instância atual a um container dinâmico único no DOM
+     * Cria automaticamente uma div filha de divRelatorio com ID único
      * Substitui a dependência do this.form do FormularioBase
      * @returns {HTMLElement} Referência ao container conectado
-     * @throws {Error} Se container não for encontrado no DOM
+     * @throws {Error} Se container pai não for encontrado no DOM
      */
     _conectarContainer() {
-        this.container = document.getElementById('divRelatorio');
+        // Busca container pai
+        const containerPai = document.getElementById('divRelatorio');
         
-        if (!this.container) {
-            throw new Error('Container #divRelatorio não encontrado no DOM. Verifique se o HTML possui este elemento.');
+        if (!containerPai) {
+            throw new Error('Container pai #divRelatorio não encontrado no DOM. Verifique se o HTML possui este elemento.');
         }
+        
+        // Gera ID único para este container
+        contadorContainers++;
+        const numeroFormatado = String(contadorContainers).padStart(2, '0');
+        const novoId = `divSubRel_${numeroFormatado}`;
+        
+        // Cria div filha com ID único
+        const novoContainer = document.createElement('div');
+        novoContainer.id = novoId;
+        novoContainer.className = 'container-sub-relatorio';
+        
+        // Anexa ao container pai
+        containerPai.appendChild(novoContainer);
+        
+        // Define como container desta instância
+        this.container = novoContainer;
         
         return this.container;
     }
 
     /**
      * Posiciona a tabela no canvas usando this.posicao
-     * Suporte a coordenadas [x, y] em vw/vh ou centralização automática []
+     * Suporte a coordenadas [x, y] em vw/vh, centralização automática [] ou layout vertical
      * @example
      * // Posição customizada
      * this.posicao = [10, 15]; // 10vw da esquerda, 15vh do topo
@@ -171,6 +192,10 @@ export class GridDados {
      * 
      * // Centralização automática
      * this.posicao = []; // Array vazio = centralizado
+     * this._posicionarTabela();
+     * 
+     * // Layout vertical para múltiplas tabelas
+     * this.posicao = ['vertical']; // Organiza verticalmente
      * this._posicionarTabela();
      */
     _posicionarTabela() {
@@ -185,6 +210,18 @@ export class GridDados {
             this.container.style.top = '50%';
             this.container.style.transform = 'translate(-50%, -50%)';
             this.container.style.zIndex = '100'; // Garante que fique sobre outros elementos
+        } else if (this.posicao[0] === 'vertical') {
+            // Layout vertical para múltiplas tabelas - posicionamento relativo
+            this.container.style.position = 'relative';
+            this.container.style.display = 'block';
+            this.container.style.width = '100%';
+            this.container.style.marginBottom = '2rem'; // Espaço entre tabelas
+            this.container.style.zIndex = '100';
+            
+            // Remove qualquer posicionamento absoluto anterior
+            this.container.style.left = 'auto';
+            this.container.style.top = 'auto';
+            this.container.style.transform = 'none';
         } else {
             // Posicionamento customizado [x, y] em vw/vh
             const [x, y] = this.posicao;
@@ -652,18 +689,6 @@ export class GridDados {
     render() {
         // 🚀 EXECUÇÃO DA SEQUÊNCIA COMPLETA DE RENDERIZAÇÃO
         
-        // 1️⃣ PREPARAÇÃO: Conecta ao container se necessário
-        this._conectarContainer();
-        
-        // 2️⃣ VALIDAÇÃO: Verifica se há dados para renderizar
-        if (!this.dados || this.dados.length === 0) {
-            // Preserva o conteúdo da divTituloRelatorio se existir
-            const divTitulo = document.getElementById('divTituloRelatorio');
-            const tituloHTML = divTitulo ? divTitulo.outerHTML : '';
-            this.container.innerHTML = tituloHTML + '<div class="tabela-vazia">Nenhum dado disponível para exibição.</div>';
-            return;
-        }
-        
         // 3️⃣ CÁLCULOS: Processa operações matemáticas (se configuradas)
         if (this.colunasComOperacao && this.colunasComOperacao.length > 0) {
             this._processarOperacoesMatematicas();
@@ -673,10 +698,7 @@ export class GridDados {
         const htmlCompleto = this._gerarTabelaCompleta();
         
         // 5️⃣ RENDERIZAÇÃO: Materializa no DOM
-        // Preserva o conteúdo da divTituloRelatorio se existir
-        const divTitulo = document.getElementById('divTituloRelatorio');
-        const tituloHTML = divTitulo ? divTitulo.outerHTML : '';
-        this.container.innerHTML = tituloHTML + htmlCompleto;
+        this.container.innerHTML = htmlCompleto;
         
         // 6️⃣ FINALIZAÇÃO: Remove classe hidden e aplica posicionamento
         this.container.classList.remove('hidden');
@@ -718,12 +740,6 @@ export class GridDados {
         
         // Gera HTML completo com controle de overflow
         const htmlCompleto = this._gerarTabelaCompleta();
-        
-        // Insere no container preservando título
-        // Preserva o conteúdo da divTituloRelatorio se existir
-        const divTitulo = document.getElementById('divTituloRelatorio');
-        const tituloHTML = divTitulo ? divTitulo.outerHTML : '';
-        this.container.innerHTML = tituloHTML + htmlCompleto;
         
         // Remove classe hidden para mostrar tabela
         this.container.classList.remove('hidden');

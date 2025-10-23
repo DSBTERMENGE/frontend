@@ -1,3 +1,6 @@
+// Import para tratamento de erros
+import { flow_marker, error_catcher, unexpected_error_catcher } from './Debugger.js';
+
 /*
 *===============================================================
 *                 FUNÇÕES PARA CÁLCULOS MATEMÁTICOS
@@ -372,16 +375,33 @@ export function formatarResultado(resultado, nomeColuna) {
 }
 
 /**
- * Cria título e descrição do relatório na divTituloRelatorio
- * @param {string} titulo - Título principal do relatório
- * @param {string} descricao - Descrição/subtítulo do relatório (opcional)
+ * Cria título e descrição em container específico
+ * @param {string} titulo - Título principal 
+ * @param {string} descricao - Descrição/subtítulo (opcional)
+ * @param {string} containerId - ID do container ("Relatorio" para divTituloRelatorio ou ID específico)
  */
-export function CriaTituloDeFormulario(titulo, descricao) {
-    const divTitulo = document.getElementById('divTituloRelatorio');
-    if (!divTitulo) return;
-    
-    divTitulo.innerHTML = `
-        <h2 style="margin: 0 0 0.5rem 0; color: #003366; font-size: 1.5rem; text-align: center;">${titulo}</h2>
-        ${descricao ? `<p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem; text-align: center; font-style: italic;">${descricao}</p>` : ''}
-    `;
+export function CriaTituloDeRelatorios(titulo, descricao, containerId) {
+    try {
+        let containerDestino;
+        
+        if (containerId === "Relatorio") {
+            containerDestino = document.getElementById('divTituloRelatorio');
+        } else {
+            containerDestino = document.getElementById(containerId);
+        }
+        
+        if (!containerDestino) {
+            throw new Error(`Container "${containerId}" não encontrado no DOM`);
+        }
+        
+        const tituloHTML = `
+            <h2 style="margin: 0 0 0.5rem 0; color: #003366; font-size: 1.5rem; text-align: center;">${titulo}</h2>
+            ${descricao ? `<p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem; text-align: center; font-style: italic;">${descricao}</p>` : ''}
+        `;
+        
+        containerDestino.innerHTML = tituloHTML;
+        
+    } catch (error) {
+        error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao criar título: ${error.message}`);
+    }
 }

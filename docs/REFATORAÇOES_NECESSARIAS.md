@@ -1,0 +1,1 @@
+-Nos formulários quando inserimos ou alteramos registros as selects de navegação não são alteradas automaticamente. Se tem que fechar o formulário e recarregá-lo.
