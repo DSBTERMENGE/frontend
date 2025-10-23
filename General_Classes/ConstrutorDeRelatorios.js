@@ -39,9 +39,9 @@ export class GridDados {
      * @param {Array<string>} formato - Formato de exibição de cada coluna
      * @example ['T', 'M', 'D', 'T'] // T=Texto, M=Moeda, D=Data, %=Porcentagem
      * 
-     * @param {Object} [posicaoCanvas={x: 3, y: 5}] - Posição da tabela no canvas
-     * @param {number} posicaoCanvas.x - Posição horizontal em vw
-     * @param {number} posicaoCanvas.y - Posição vertical em vh
+     * @param {Object} [posicaoGrid={x: 0, y: 0}] - Posição da div no grid
+     * @param {number} posicaoGrid.x - Coluna do grid (0-based)
+     * @param {number} posicaoGrid.y - Linha do grid (0-based)
      * 
      * @param {Object} [opcoes={}] - Configurações avançadas opcionais
      * @param {Array<string>} [opcoes.configResultados=null] - Config. analytics no footer
@@ -183,53 +183,64 @@ export class GridDados {
     }
 
     /**
-     * Posiciona a tabela no canvas usando this.posicao
-     * Suporte a coordenadas [x, y] em vw/vh, centralização automática [] ou layout vertical
+     * Posiciona a div filha no grid usando this.posicao
+     * Suporte a coordenadas [x, y] no grid, centralização automática [] ou layout vertical
      * @example
-     * // Posição customizada
-     * this.posicao = [10, 15]; // 10vw da esquerda, 15vh do topo
-     * this._posicionarTabela();
+     * // Posição customizada no grid
+     * this.posicao = [1, 2]; // coluna 1, linha 2 do grid
+     * this._posicionarDivFilha();
      * 
      * // Centralização automática
      * this.posicao = []; // Array vazio = centralizado
-     * this._posicionarTabela();
+     * this._posicionarDivFilha();
      * 
      * // Layout vertical para múltiplas tabelas
      * this.posicao = ['vertical']; // Organiza verticalmente
-     * this._posicionarTabela();
+     * this._posicionarDivFilha();
      */
-    _posicionarTabela() {
+    _posicionarDivFilha() {
         if (!this.container) {
             this._conectarContainer();
         }
         
+        // Configura o container pai (divRelatorio) como grid CSS na primeira vez
+        const containerPai = document.getElementById('divRelatorio');
+        if (containerPai && !containerPai.style.display) {
+            containerPai.style.display = 'grid';
+            containerPai.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
+            containerPai.style.gridAutoRows = 'min-content';
+            containerPai.style.gap = '1rem';
+            containerPai.style.padding = '1rem';
+        }
+        
         if (this.posicao.length === 0) {
-            // Centralização automática no divCorpo
-            this.container.style.position = 'absolute';
-            this.container.style.left = '50%';
-            this.container.style.top = '50%';
-            this.container.style.transform = 'translate(-50%, -50%)';
-            this.container.style.zIndex = '100'; // Garante que fique sobre outros elementos
-        } else if (this.posicao[0] === 'vertical') {
-            // Layout vertical para múltiplas tabelas - posicionamento relativo
+            // Posicionamento automático no grid (sem coordenadas específicas)
+            this.container.style.gridColumn = 'auto';
+            this.container.style.gridRow = 'auto';
             this.container.style.position = 'relative';
-            this.container.style.display = 'block';
-            this.container.style.width = '100%';
-            this.container.style.marginBottom = '2rem'; // Espaço entre tabelas
-            this.container.style.zIndex = '100';
-            
-            // Remove qualquer posicionamento absoluto anterior
+            this.container.style.left = 'auto';
+            this.container.style.top = 'auto';
+            this.container.style.transform = 'none';
+        } else if (this.posicao[0] === 'vertical') {
+            // Layout vertical - usa grid com uma coluna
+            if (containerPai) {
+                containerPai.style.gridTemplateColumns = '1fr';
+            }
+            this.container.style.gridColumn = '1';
+            this.container.style.gridRow = 'auto';
+            this.container.style.position = 'relative';
             this.container.style.left = 'auto';
             this.container.style.top = 'auto';
             this.container.style.transform = 'none';
         } else {
-            // Posicionamento customizado [x, y] em vw/vh
-            const [x, y] = this.posicao;
-            this.container.style.position = 'absolute';
-            this.container.style.left = `${x}vw`;
-            this.container.style.top = `${y}vh`;
+            // Posicionamento específico no grid [coluna, linha]
+            const [coluna, linha] = this.posicao;
+            this.container.style.gridColumn = coluna + 1; // Grid CSS é 1-based
+            this.container.style.gridRow = linha + 1;     // Grid CSS é 1-based
+            this.container.style.position = 'relative';
+            this.container.style.left = 'auto';
+            this.container.style.top = 'auto';
             this.container.style.transform = 'none';
-            this.container.style.zIndex = '100';
         }
     }
 
@@ -704,7 +715,7 @@ export class GridDados {
         this.container.classList.remove('hidden');
         
         if (this.posicao.length > 0 || this.posicao.length === 0) {
-            this._posicionarTabela();
+            this._posicionarDivFilha();
         }
     }
     
@@ -746,7 +757,7 @@ export class GridDados {
         
         // Aplica posicionamento se configurado
         if (this.posicao.length > 0 || this.posicao.length === 0) {
-            this._posicionarTabela();
+            this._posicionarDivFilha();
         }
     }
 
@@ -777,7 +788,7 @@ export class GridDados {
     /**
      * Método estático para criação simplificada (MELHORADO!)
      */
-    static criar(titulo, descricao, cabecalho, larguraColunas, alinhamento, formato, dados = [], posicaoCanvas = {x: 3, y: 5}, opcoes = {}) {
+    static criar(titulo, descricao, cabecalho, larguraColunas, alinhamento, formato, dados = [], posicaoGrid = {x: 0, y: 0}, opcoes = {}) {
         const tabela = new GridDados();
         
         // Configura propriedades
@@ -787,7 +798,7 @@ export class GridDados {
         tabela.larguraColunas = larguraColunas;
         tabela.alinhamento = alinhamento;
         tabela.formato = formato;
-        tabela.posicao = [posicaoCanvas.x, posicaoCanvas.y];
+        tabela.posicao = [posicaoGrid.x, posicaoGrid.y];
         
         if (dados.length > 0) {
             tabela.setDados(dados);
