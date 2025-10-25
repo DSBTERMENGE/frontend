@@ -326,7 +326,6 @@ export function obterLabelOperacao(operacao) {
     const labels = {
         'Tot': 'Total',
         'Med': 'Média', 
-        'Max': 'Máximo',
         'Min': 'Mínimo',
         'Cnt': 'Contagem',
         'Sum': 'Soma',
@@ -350,16 +349,16 @@ export function obterLabelOperacao(operacao) {
 export function formatarResultado(resultado, nomeColuna) {
     const nomeMinusculo = nomeColuna.toLowerCase();
     
-    // Se é valor monetário, formata como moeda
+    // Se é valor monetário, formata como número (SEM R$)
     if (nomeMinusculo.includes('valor') || 
         nomeMinusculo.includes('preco') || 
         nomeMinusculo.includes('custo') ||
         nomeMinusculo.includes('receita') ||
         nomeMinusculo.includes('despesa')) {
-        return new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL'
-        }).format(resultado);
+        return resultado.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     }
     
     // Se é contagem, não usa decimais

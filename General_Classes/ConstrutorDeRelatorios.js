@@ -17,7 +17,7 @@ import {
 // ===== CONTADOR GLOBAL PARA CONTAINERS ÚNICOS =====
 let contadorContainers = 0;
 
-export class GridDados {
+    export class GridDados {
     /**
      * Construtor da classe GridDados - Sistema avançado de exibição de dados tabulares
      * 
@@ -203,44 +203,17 @@ export class GridDados {
             this._conectarContainer();
         }
         
-        // Configura o container pai (divRelatorio) como grid CSS na primeira vez
-        const containerPai = document.getElementById('divRelatorio');
-        if (containerPai && !containerPai.style.display) {
-            containerPai.style.display = 'grid';
-            containerPai.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
-            containerPai.style.gridAutoRows = 'min-content';
-            containerPai.style.gap = '1rem';
-            containerPai.style.padding = '1rem';
-        }
-        
         if (this.posicao.length === 0) {
-            // Posicionamento automático no grid (sem coordenadas específicas)
-            this.container.style.gridColumn = 'auto';
-            this.container.style.gridRow = 'auto';
+            // Posicionamento automático (fluxo normal do HTML)
             this.container.style.position = 'relative';
             this.container.style.left = 'auto';
             this.container.style.top = 'auto';
-            this.container.style.transform = 'none';
-        } else if (this.posicao[0] === 'vertical') {
-            // Layout vertical - usa grid com uma coluna
-            if (containerPai) {
-                containerPai.style.gridTemplateColumns = '1fr';
-            }
-            this.container.style.gridColumn = '1';
-            this.container.style.gridRow = 'auto';
-            this.container.style.position = 'relative';
-            this.container.style.left = 'auto';
-            this.container.style.top = 'auto';
-            this.container.style.transform = 'none';
         } else {
-            // Posicionamento específico no grid [coluna, linha]
-            const [coluna, linha] = this.posicao;
-            this.container.style.gridColumn = coluna + 1; // Grid CSS é 1-based
-            this.container.style.gridRow = linha + 1;     // Grid CSS é 1-based
-            this.container.style.position = 'relative';
-            this.container.style.left = 'auto';
-            this.container.style.top = 'auto';
-            this.container.style.transform = 'none';
+            // Posicionamento específico [x, y] em pixels
+            const [x, y] = this.posicao;
+            this.container.style.position = 'absolute';
+            this.container.style.left = `${x}px`;
+            this.container.style.top = `${y}px`;
         }
     }
 
@@ -810,8 +783,8 @@ export class GridDados {
     }
 
     /**
-     * Cria header visual da tabela com título e descrição
-     * Layout auto-wrap: navegador decide se cabe em linha ou quebra automaticamente
+     * Cria header visual da tabela com título e descrição na mesma linha
+     * Layout horizontal com separador para economizar altura
      * Diferente do <thead> - este é o cabeçalho visual acima da tabela
      * Usa this.titulo e this.descricao
      * @returns {string} HTML do header visual
@@ -821,16 +794,16 @@ export class GridDados {
             return ''; // Sem header se não há título nem descrição
         }
         
-        const larguraTabela = this._calcularLarguraTotal();
-        
         let header = `<div class="tabela-header" style="
             margin-bottom: 0.75rem; 
             display: flex;
-            flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 1rem;
-            width: ${larguraTabela}vw;
+            gap: 0.5rem;
+            width: auto;
+            max-width: 100%;
+            word-wrap: break-word;
+            flex-wrap: wrap;
         ">`;
         
         if (this.titulo) {
@@ -839,8 +812,16 @@ export class GridDados {
                 color: #003366; 
                 font-size: 1.25rem; 
                 font-weight: bold;
-                white-space: nowrap;
             ">${this.titulo}</h2>`;
+        }
+        
+        // Separador apenas se ambos existirem
+        if (this.titulo && this.descricao) {
+            header += `<span style="
+                color: #666;
+                font-size: 1rem;
+                font-weight: normal;
+            "> - </span>`;
         }
         
         if (this.descricao) {
@@ -849,7 +830,6 @@ export class GridDados {
                 color: #666; 
                 font-size: 0.875rem; 
                 font-style: italic;
-                white-space: nowrap;
             ">${this.descricao}</p>`;
         }
         
@@ -861,43 +841,60 @@ export class GridDados {
      * Cria footer da tabela com operações matemáticas nas colunas especificadas
      * Mapeia automaticamente o tipo de operação baseado no nome da coluna
      * Usa this.colunasComOperacao para determinar quais colunas calcular
-     * @returns {string} HTML do footer com resultados das operações
+     * @returns {string} HTML do tfoot com resultados das operações
      */
     _criarFooterTabela() {
         if (!this.colunasComOperacao || this.colunasComOperacao.length === 0) {
             return ''; // Sem footer se não há colunas para calcular
         }
-
-        const larguraTabela = this._calcularLarguraTotal();
         
-        let footer = `<div class="tabela-footer" style="
-            margin-top: 0.75rem; 
-            padding: 0.75rem;
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: ${larguraTabela}vw;
-            box-sizing: border-box;
-        ">`;
+        let tfoot = `<tfoot>`;
         
         // Para cada coluna com operação, calcula o resultado
         this.colunasComOperacao.forEach(nomeColuna => {
             const operacao = determinarOperacaoColuna(nomeColuna);
             const resultado = executarOperacao(this.dados, nomeColuna, operacao);
             
-            footer += `<div style="
-                display: inline-block;
-                margin-right: 2rem;
-                color: #003366;
-                font-weight: bold;
-            ">
-                <span style="color: #666; font-weight: normal;">${obterLabelOperacao(operacao)}:</span>
-                <span>${formatarResultado(resultado, nomeColuna)}</span>
-            </div>`;
+            // Criar linha de totais
+            tfoot += `<tr style="background-color: #e3f2fd; font-weight: bold;">`;
+            
+            // Percorrer todas as colunas da tabela
+            this.cabecalho.forEach((coluna, index) => {
+                if (coluna === nomeColuna) {
+                    // Coluna com resultado
+                    tfoot += `<td style="
+                        text-align: ${this.alinhamento[index] === 'D' ? 'right' : this.alinhamento[index] === 'C' ? 'center' : 'left'};
+                        padding: 0.5rem;
+                        border: 0.0625rem solid #003366;
+                        background-color: #e3f2fd;
+                        color: #003366;
+                        font-weight: bold;
+                    ">${formatarResultado(resultado, nomeColuna)}</td>`;
+                } else if (index === 0) {
+                    // Primeira coluna mostra o label da operação - ALINHADO À DIREITA
+                    tfoot += `<td style="
+                        text-align: right;
+                        padding: 0.5rem;
+                        border: 0.0625rem solid #003366;
+                        background-color: #e3f2fd;
+                        color: #003366;
+                        font-weight: bold;
+                    ">${obterLabelOperacao(operacao)}</td>`;
+                } else {
+                    // Outras colunas ficam vazias
+                    tfoot += `<td style="
+                        padding: 0.5rem;
+                        border: 0.0625rem solid #003366;
+                        background-color: #e3f2fd;
+                    "></td>`;
+                }
+            });
+            
+            tfoot += `</tr>`;
         });
         
-        footer += '</div>';
-        return footer;
+        tfoot += '</tfoot>';
+        return tfoot;
     }
 
     /**
@@ -1143,15 +1140,12 @@ export class GridDados {
         // 2️⃣ PREPARAÇÃO: Estrutura da Tabela
         const thead = this._gerarHTMLHeader();
         const tbody = this._gerarHTMLBody();
-        // const tfoot = this._gerarLinhaResultados(); // Removido - usando footer externo
+        const tfoot = this._criarFooterTabela(); // Footer integrado como tfoot
         
-        // 3️⃣ PREPARAÇÃO: Footer com Operações (totais, médias, etc.)
-        const footerOperacoes = this._criarFooterTabela();
-        
-        // 4️⃣ CÁLCULOS: Largura da tabela (pode exceder viewport)
+        // 3️⃣ CÁLCULOS: Largura da tabela (pode exceder viewport)
         const larguraTotalVW = this._calcularLarguraTotal();
         
-        // 5️⃣ MONTAGEM: Estrutura HTML completa
+        // 4️⃣ MONTAGEM: Estrutura HTML completa
         const conteudoTabela = `
             ${headerVisual}
             <table style="
@@ -1164,8 +1158,8 @@ export class GridDados {
             ">
                 ${thead}
                 ${tbody}
+                ${tfoot}
             </table>
-            ${footerOperacoes}
         `;
         
         // 6️⃣ RENDERIZAÇÃO: Container com overflow e HTML final
