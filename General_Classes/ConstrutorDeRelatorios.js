@@ -760,7 +760,12 @@ let contadorContainers = 0;
 
     /**
      * Método estático para criação simplificada (MELHORADO!)
+     * 
+     * ⚠️ FUNÇÃO COMENTADA - CÓDIGO LEGADO NÃO UTILIZADO
+     * Esta função não é usada internamente nem externamente no projeto.
+     * Mantida comentada para eventual remoção definitiva.
      */
+    /*
     static criar(titulo, descricao, cabecalho, larguraColunas, alinhamento, formato, dados = [], posicaoGrid = {x: 0, y: 0}, opcoes = {}) {
         const tabela = new GridDados();
         
@@ -781,6 +786,7 @@ let contadorContainers = 0;
         
         return tabela;
     }
+    */
 
     /**
      * Cria header visual da tabela com título e descrição na mesma linha
@@ -1167,4 +1173,638 @@ let contadorContainers = 0;
     }
 
    
+}
+
+
+// ===============================================================================
+// 🧮 CLASSE GRIDANALISE - TABELAS DE RESULTADOS E ANÁLISES
+// ===============================================================================
+
+/**
+ * Classe GridAnalise - Especializada em tabelas de resultados calculados
+ * 
+ * Diferente da GridDados (dados do banco), esta classe é otimizada para:
+ * - Tabelas de análise com campos calculados
+ * - Resumos financeiros e estatísticos  
+ * - Dashboards com totalizadores
+ * - Layout fixo de 2 colunas (Descrição | Valor)
+ * - Linhas separadoras visuais
+ * 
+ * @example
+ * const analise = new GridAnalise();
+ * analise.titulo = "Análise Mensal";
+ * analise.cabecalho = ["Descrição", "Valor"];
+ * analise.setDados([
+ *     {descricao: "Receita Total", valor: "5.000,00"},
+ *     {separador: true},
+ *     {descricao: "Despesas", valor: "3.200,00"}
+ * ]);
+ */
+export class GridAnalise {
+    
+    constructor() {
+        // ===== PROPRIEDADES ESSENCIAIS =====
+        /** @type {string} Título da análise */
+        this.titulo = '';
+        
+        /** @type {Array<string>} Cabeçalho da tabela (normalmente ["Descrição", "Valor"]) */
+        this.cabecalho = ["Descrição", "Valor"];
+        
+        /** @type {Array<Object>} Dados da análise (preenchido via setDados()) */
+        this.dados = [];
+        
+        // ===== CONFIGURAÇÕES VISUAIS =====
+        /** @type {Array<number>} Larguras das colunas em % (padrão: 70% desc, 30% valor) */
+        this.larguraColunas = [70, 30];
+        
+        /** @type {Array<string>} Alinhamento das colunas */
+        this.alinhamento = ['E', 'D']; // Esquerda para descrição, Direita para valor
+        
+        /** @type {string} Classe CSS para estilização específica */
+        this.cssClass = 'grid-analise';
+        
+        // ===== CONTROLE DE POSICIONAMENTO =====
+        /** @type {Array<number>} Posição da div no layout [x, y] */
+        this.posicao = [];
+        
+        /** @type {HTMLElement|null} Container da análise */
+        this.container = null;
+        
+        console.log('✅ GridAnalise inicializada');
+    }
+    
+    /**
+     * Define os dados da análise com validação
+     * @param {Array<Object>} dados - Array de objetos com dados da análise
+     * @example 
+     * [
+     *   {descricao: "Receita", valor: "1000,00"},
+     *   {separador: true},
+     *   {descricao: "Despesa", valor: "800,00"}
+     * ]
+     */
+
+
+    setDados(dados) {
+        if (!Array.isArray(dados)) {
+            throw new Error('Dados deve ser um array de objetos.');
+        }
+        
+        this.dados = dados;
+        
+        // Constrói automaticamente quando dados são definidos
+        if (dados.length > 0 && this.titulo) {
+            this.construirAnalise();
+        }
+    }
+    
+    /**
+     * Conecta a instância a um container dinâmico único
+     * Cria div filha com ID padrão divSubRelEsp_nn
+     */
+    _conectarContainer() {
+        // Busca container pai
+        const containerPai = document.getElementById('divRelatorio');
+        
+        if (!containerPai) {
+            throw new Error('Container pai #divRelatorio não encontrado no DOM.');
+        }
+        
+        // Gera ID único para análise
+        const contadorExistente = document.querySelectorAll('[id^="divSubRelEsp_"]').length;
+        const novoId = `divSubRelEsp_${String(contadorExistente + 1).padStart(2, '0')}`;
+        
+        // Cria div filha
+        const novoContainer = document.createElement('div');
+        novoContainer.id = novoId;
+        novoContainer.className = `container-analise ${this.cssClass}`;
+        
+        // Anexa ao container pai
+        containerPai.appendChild(novoContainer);
+        
+        // Define como container desta instância
+        this.container = novoContainer;
+        
+        return this.container;
+    }
+    
+    /**
+     * Posiciona a div da análise conforme this.posicao
+     */
+    _posicionarDiv() {
+        if (!this.container) {
+            this._conectarContainer();
+        }
+        
+        if (this.posicao.length === 0) {
+            // Posicionamento automático (fluxo normal)
+            this.container.style.position = 'relative';
+            this.container.style.left = 'auto';
+            this.container.style.top = 'auto';
+        } else {
+            // Posicionamento específico [x, y]
+            const [x, y] = this.posicao;
+            this.container.style.position = 'absolute';
+            this.container.style.left = `${x}px`;
+            this.container.style.top = `${y}px`;
+        }
+    }
+    
+    /**
+     * Gera HTML da tabela de análise
+     * @returns {string} HTML completo da tabela
+     */
+    _gerarHTMLAnalise() {
+        // Header com título
+        const header = `
+            <div class="header-analise">
+                <h3>${this.titulo}</h3>
+            </div>
+        `;
+        
+        // Cabeçalho da tabela
+        const thead = `
+            <thead>
+                <tr>
+                    ${this.cabecalho.map((col, i) => 
+                        `<th style="width: ${this.larguraColunas[i]}%; text-align: ${this._alinhamentoCSS(this.alinhamento[i])}">${col}</th>`
+                    ).join('')}
+                </tr>
+            </thead>
+        `;
+        
+        // Corpo da tabela
+        const tbody = `
+            <tbody>
+                ${this.dados.map(linha => {
+                    if (linha.separador) {
+                        return '<tr class="separador"><td colspan="2"><hr></td></tr>';
+                    }
+                    
+                    return `
+                        <tr>
+                            <td style="text-align: ${this._alinhamentoCSS(this.alinhamento[0])}">${linha.descricao || ''}</td>
+                            <td style="text-align: ${this._alinhamentoCSS(this.alinhamento[1])}">${linha.valor || ''}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        `;
+        
+        // Tabela completa
+        const tabela = `
+            <table class="tabela-analise">
+                ${thead}
+                ${tbody}
+            </table>
+        `;
+        
+        return header + tabela;
+    }
+    
+    /**
+     * Conversão de código de alinhamento para CSS
+     * @param {string} codigo - Código de alinhamento (E/C/D)
+     * @returns {string} Valor CSS
+     */
+    _alinhamentoCSS(codigo) {
+        switch (codigo) {
+            case 'E': return 'left';
+            case 'C': return 'center';
+            case 'D': return 'right';
+            default: return 'left';
+        }
+    }
+    
+    /**
+     * Constrói e renderiza a análise completa
+     */
+    construirAnalise() {
+        // Conecta ao container se necessário
+        if (!this.container) {
+            this._conectarContainer();
+        }
+        
+        // Gera HTML e insere no container
+        const htmlCompleto = this._gerarHTMLAnalise();
+        this.container.innerHTML = htmlCompleto;
+        
+        // Aplica posicionamento
+        this._posicionarDiv();
+        
+        // Remove classe hidden se existir
+        this.container.classList.remove('hidden');
+        
+        console.log(`✅ GridAnalise "${this.titulo}" construída no container ${this.container.id}`);
+    }
+    
+    /**
+     * Oculta a análise
+     */
+    ocultar() {
+        if (this.container) {
+            this.container.classList.add('hidden');
+        }
+    }
+    
+    /**
+     * Remove a análise do DOM
+     */
+    destruir() {
+        if (this.container && this.container.parentNode) {
+            this.container.parentNode.removeChild(this.container);
+            this.container = null;
+        }
+    }
+}
+
+// ===============================================================================
+// 📊 CLASSE GRIDCHART - GRÁFICOS INTERATIVOS COM CHART.JS
+// ===============================================================================
+
+/**
+ * Classe GridChart - Especializada em criação de gráficos interativos
+ * 
+ * Utiliza Chart.js para criar gráficos modernos e responsivos:
+ * - Gráficos de pizza, barras, linhas, donut
+ * - Configuração flexível de dados e cores
+ * - Container único divSubRelChart_nn
+ * - Integração automática com Chart.js
+ * 
+ * @example
+ * const grafico = new GridChart();
+ * grafico.titulo = "Despesas por Categoria";
+ * grafico.tipo = "pizza";
+ * grafico.labels = ["Alimentação", "Transporte", "Lazer"];
+ * grafico.valores = [1200, 800, 400];
+ * grafico.criarGrafico();
+ */
+export class GridChart {
+    
+    constructor() {
+        // ===== PROPRIEDADES ESSENCIAIS =====
+        /** @type {string} Título do gráfico */
+        this.titulo = '';
+        
+        /** @type {string} Tipo do gráfico: 'pizza', 'barras', 'linhas', 'donut' */
+        this.tipo = 'pizza';
+        
+        /** @type {number} Largura do gráfico em pixels */
+        this.largura = 400;
+        
+        /** @type {number} Altura do gráfico em pixels */
+        this.altura = 300;
+        
+        // ===== DADOS DO GRÁFICO =====
+        /** @type {Array<string>} Labels para o gráfico */
+        this.labels = [];
+        
+        /** @type {Array<number>|Array<Array<number>>} Valores - simples ou múltiplas séries */
+        this.valores = [];
+        
+        /** @type {Array<string>} Cores personalizadas (opcional - gera automático se vazio) */
+        this.cores = [];
+        
+        // ===== CONTROLE DE POSICIONAMENTO =====
+        /** @type {Array<number>} Posição da div no layout [x, y] */
+        this.posicao = [];
+        
+        /** @type {HTMLElement|null} Container do gráfico */
+        this.container = null;
+        
+        /** @type {Object|null} Instância do Chart.js */
+        this.chartInstance = null;
+        
+        console.log('✅ GridChart inicializada');
+    }
+    
+    /**
+     * Conecta a instância a um container dinâmico único
+     * Cria div filha com ID padrão divSubRelChart_nn
+     */
+    _conectarContainer() {
+        // Busca container pai
+        const containerPai = document.getElementById('divRelatorio');
+        
+        if (!containerPai) {
+            throw new Error('Container pai #divRelatorio não encontrado no DOM.');
+        }
+        
+        // Gera ID único para gráfico
+        const contadorExistente = document.querySelectorAll('[id^="divSubRelChart_"]').length;
+        const novoId = `divSubRelChart_${String(contadorExistente + 1).padStart(2, '0')}`;
+        
+        // Cria div filha
+        const novoContainer = document.createElement('div');
+        novoContainer.id = novoId;
+        novoContainer.className = 'container-grafico';
+        
+        // Anexa ao container pai
+        containerPai.appendChild(novoContainer);
+        
+        // Define como container desta instância
+        this.container = novoContainer;
+        
+        return this.container;
+    }
+    
+    /**
+     * Posiciona a div do gráfico conforme this.posicao
+     */
+    _posicionarDiv() {
+        if (!this.container) {
+            this._conectarContainer();
+        }
+        
+        if (this.posicao.length === 0) {
+            // Posicionamento automático (fluxo normal)
+            this.container.style.position = 'relative';
+            this.container.style.left = 'auto';
+            this.container.style.top = 'auto';
+        } else {
+            // Posicionamento específico [x, y]
+            const [x, y] = this.posicao;
+            this.container.style.position = 'absolute';
+            this.container.style.left = `${x}px`;
+            this.container.style.top = `${y}px`;
+        }
+    }
+    
+    /**
+     * Gera cores automáticas se não fornecidas
+     * @param {number} quantidade - Quantidade de cores necessárias
+     * @returns {Array<string>} Array de cores em formato hexadecimal
+     */
+    _gerarCoresAutomaticas(quantidade) {
+        const coresPadrao = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+            '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF',
+            '#4BC0C0', '#FF6384', '#36A2EB', '#FFCE56'
+        ];
+        
+        const cores = [];
+        for (let i = 0; i < quantidade; i++) {
+            cores.push(coresPadrao[i % coresPadrao.length]);
+        }
+        
+        return cores;
+    }
+    
+    /**
+     * Formata dados conforme o tipo de gráfico
+     * @returns {Object} Dados formatados para Chart.js
+     */
+    _formatarDados() {
+        const cores = this.cores.length > 0 ? this.cores : this._gerarCoresAutomaticas(this.labels.length);
+        
+        switch (this.tipo) {
+            case 'pizza':
+            case 'donut':
+                return {
+                    labels: this.labels,
+                    datasets: [{
+                        data: this.valores,
+                        backgroundColor: cores,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                };
+                
+            case 'barras':
+                return {
+                    labels: this.labels,
+                    datasets: [{
+                        label: this.titulo || 'Dados',
+                        data: this.valores,
+                        backgroundColor: cores[0] || '#36A2EB',
+                        borderColor: cores[0] || '#36A2EB',
+                        borderWidth: 1
+                    }]
+                };
+                
+            case 'linhas':
+                return {
+                    labels: this.labels,
+                    datasets: [{
+                        label: this.titulo || 'Dados',
+                        data: this.valores,
+                        borderColor: cores[0] || '#36A2EB',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1
+                    }]
+                };
+                
+            default:
+                throw new Error(`Tipo de gráfico "${this.tipo}" não suportado`);
+        }
+    }
+    
+    /**
+     * Gera configurações do Chart.js baseadas no tipo
+     * @returns {Object} Configurações para Chart.js
+     */
+    _gerarConfiguracoes() {
+        const configBase = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: !!this.titulo,
+                    text: this.titulo,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                }
+            }
+        };
+        
+        // Configurações específicas por tipo
+        switch (this.tipo) {
+            case 'pizza':
+                return {
+                    type: 'pie',
+                    data: this._formatarDados(),
+                    options: configBase
+                };
+                
+            case 'donut':
+                return {
+                    type: 'doughnut',
+                    data: this._formatarDados(),
+                    options: configBase
+                };
+                
+            case 'barras':
+                return {
+                    type: 'bar',
+                    data: this._formatarDados(),
+                    options: {
+                        ...configBase,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                };
+                
+            case 'linhas':
+                return {
+                    type: 'line',
+                    data: this._formatarDados(),
+                    options: {
+                        ...configBase,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                };
+                
+            default:
+                throw new Error(`Tipo de gráfico "${this.tipo}" não suportado`);
+        }
+    }
+    
+    /**
+     * Valida se Chart.js está disponível
+     * @throws {Error} Se Chart.js não estiver carregado
+     */
+    _validarChartJS() {
+        if (typeof Chart === 'undefined') {
+            throw new Error('Chart.js não está carregado. Adicione o script Chart.js ao HTML: <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>');
+        }
+    }
+    
+    /**
+     * Cria e renderiza o gráfico
+     */
+    criarGrafico() {
+        try {
+            // Validações
+            this._validarChartJS();
+            
+            if (this.labels.length === 0 || this.valores.length === 0) {
+                throw new Error('Labels e valores são obrigatórios');
+            }
+            
+            if (this.labels.length !== this.valores.length) {
+                throw new Error('Labels e valores devem ter o mesmo tamanho');
+            }
+            
+            // Conecta ao container se necessário
+            if (!this.container) {
+                this._conectarContainer();
+            }
+            
+            // Destrói gráfico anterior se existir
+            if (this.chartInstance) {
+                this.chartInstance.destroy();
+            }
+            
+            // Cria canvas para o gráfico
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart_${this.container.id}`;
+            canvas.width = this.largura;
+            canvas.height = this.altura;
+            
+            // Limpa container e adiciona canvas
+            this.container.innerHTML = '';
+            this.container.appendChild(canvas);
+            
+            // Aplica estilos ao container
+            this.container.style.width = `${this.largura}px`;
+            this.container.style.height = `${this.altura}px`;
+            this.container.style.border = '1px solid #ddd';
+            this.container.style.borderRadius = '4px';
+            this.container.style.padding = '10px';
+            this.container.style.backgroundColor = '#fff';
+            this.container.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            
+            // Aplica posicionamento
+            this._posicionarDiv();
+            
+            // Cria instância Chart.js
+            const ctx = canvas.getContext('2d');
+            const config = this._gerarConfiguracoes();
+            this.chartInstance = new Chart(ctx, config);
+            
+            // Remove classe hidden se existir
+            this.container.classList.remove('hidden');
+            
+            console.log(`✅ GridChart "${this.titulo}" criado no container ${this.container.id}`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao criar gráfico:', error.message);
+            
+            // Exibe erro no container
+            if (this.container) {
+                this.container.innerHTML = `
+                    <div style="
+                        color: red; 
+                        text-align: center; 
+                        padding: 20px;
+                        border: 1px solid red;
+                        border-radius: 4px;
+                        background-color: #ffe6e6;
+                    ">
+                        <strong>Erro ao criar gráfico:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+    }
+    
+    /**
+     * Atualiza dados do gráfico existente
+     * @param {Array<string>} novasLabels - Novos labels
+     * @param {Array<number>} novosValores - Novos valores
+     */
+    atualizarDados(novasLabels, novosValores) {
+        if (!this.chartInstance) {
+            throw new Error('Gráfico não foi criado ainda. Use criarGrafico() primeiro.');
+        }
+        
+        this.labels = novasLabels;
+        this.valores = novosValores;
+        
+        const dadosFormatados = this._formatarDados();
+        this.chartInstance.data = dadosFormatados;
+        this.chartInstance.update();
+        
+        console.log('✅ Dados do gráfico atualizados');
+    }
+    
+    /**
+     * Oculta o gráfico
+     */
+    ocultar() {
+        if (this.container) {
+            this.container.classList.add('hidden');
+        }
+    }
+    
+    /**
+     * Remove o gráfico do DOM
+     */
+    destruir() {
+        if (this.chartInstance) {
+            this.chartInstance.destroy();
+            this.chartInstance = null;
+        }
+        
+        if (this.container && this.container.parentNode) {
+            this.container.parentNode.removeChild(this.container);
+            this.container = null;
+        }
+    }
 }

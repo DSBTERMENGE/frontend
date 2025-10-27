@@ -447,6 +447,114 @@ export default class api_fe {
         }
     }
     
+    /**
+     * 🔍 Executa SQL personalizado diretamente no banco de dados
+     * 
+     * Permite execução de consultas SQL customizadas enviadas do frontend.
+     * Ideal para consultas complexas, relatórios e operações que não se encaixam
+     * nos métodos CRUD padrão.
+     * 
+     * @param {string} sql - Comando SQL a executar (SELECT, INSERT, UPDATE, DELETE, etc.)
+     * @param {string} [database_path] - Caminho do banco (usa this.const_database_path se não fornecido)
+     * @param {string} [database_name] - Nome do banco (usa this.const_database_name se não fornecido)
+     * @returns {Promise<Object>} Resultado estruturado da execução
+     * 
+     * @example
+     * // Consulta SELECT simples
+     * const resultado = await api.executar_sql("SELECT * FROM tb_grupos WHERE ativo = 1");
+     * if (resultado.sucesso) {
+     *     console.log('Dados:', resultado.dados);
+     * }
+     * 
+     * @example
+     * // Consulta com SUM e alias personalizado
+     * const sql = "SELECT SUM(valor) AS total_despesas FROM tb_despesas WHERE mes = 12";
+     * const resultado = await api.executar_sql(sql);
+     * if (resultado.sucesso) {
+     *     const total = resultado.dados[0].total_despesas;
+     * }
+     * 
+     * @example
+     * // Comando DDL/DML
+     * const resultado = await api.executar_sql("UPDATE tb_config SET valor = 'novo' WHERE chave = 'tema'");
+     * if (resultado.sucesso) {
+     *     console.log(`${resultado.registros_afetados} registros atualizados`);
+     * }
+     */
+    async executar_sql(sql, database_path = null, database_name = null) {
+        try {
+            flow_marker('🔍 executar_sql() iniciado');
+            
+            // Validação básica do SQL
+            if (!sql || sql.trim() === '') {
+                throw new Error("SQL não fornecido ou vazio");
+            }
+            
+            // Usa configurações da instância se parâmetros não fornecidos
+            const db_path = database_path || this.const_database_path;
+            const db_name = database_name || this.const_database_name;
+            
+            // Validação das configurações de banco
+            if (!db_path) {
+                throw new Error("database_path não configurado. Configure this.const_database_path primeiro.");
+            }
+            
+            if (!db_name) {
+                throw new Error("database_name não configurado. Configure this.const_database_name primeiro.");
+            }
+            
+            // Monta payload para o backend
+            const url = `${this.const_backend_url}/executar_sql`;
+            const payload = {
+                sql: sql.trim(),
+                database_path: db_path,
+                database_name: db_name
+            };
+            
+            flow_marker(`🌐 Enviando SQL para: ${url}`, {
+                sql: sql.substring(0, 100) + (sql.length > 100 ? '...' : ''),
+                database_path: db_path,
+                database_name: db_name
+            });
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.const_headers
+                },
+                body: JSON.stringify(payload),
+                timeout: this.const_timeout
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const resultado = await response.json();
+            
+            // Log do resultado baseado no tipo
+            if (resultado.sucesso) {
+                if (resultado.dados) {
+                    flow_marker(`✅ SQL SELECT executado: ${resultado.dados.length} registro(s) retornado(s)`);
+                } else {
+                    flow_marker(`✅ SQL DDL/DML executado: ${resultado.registros_afetados} registro(s) afetado(s)`);
+                }
+            } else {
+                flow_marker(`❌ Erro na execução SQL: ${resultado.erro}`);
+            }
+            
+            return resultado;
+            
+        } catch (error) {
+            error_catcher('❌ Erro no executar_sql():', error);
+            return {
+                sucesso: false,
+                erro: error.message
+            };
+        }
+    }
+
 
  /**
      * Método genérico para atualizar registros noend 
