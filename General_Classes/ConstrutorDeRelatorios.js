@@ -156,29 +156,8 @@ let contadorContainers = 0;
      * @throws {Error} Se container pai não for encontrado no DOM
      */
     _conectarContainer() {
-        // Busca container pai
-        const containerPai = document.getElementById('divRelatorio');
-        
-        if (!containerPai) {
-            throw new Error('Container pai #divRelatorio não encontrado no DOM. Verifique se o HTML possui este elemento.');
-        }
-        
-        // Gera ID único para este container
-        contadorContainers++;
-        const numeroFormatado = String(contadorContainers).padStart(2, '0');
-        const novoId = `divSubRel_${numeroFormatado}`;
-        
-        // Cria div filha com ID único
-        const novoContainer = document.createElement('div');
-        novoContainer.id = novoId;
-        novoContainer.className = 'container-sub-relatorio';
-        
-        // Anexa ao container pai
-        containerPai.appendChild(novoContainer);
-        
-        // Define como container desta instância
-        this.container = novoContainer;
-        
+        // Usa função global padronizada
+        this.container = criarDivFilhaRelatorio('divSubRel', 'container-sub-relatorio');
         return this.container;
     }
 
@@ -1263,28 +1242,8 @@ export class GridAnalise {
      * Cria div filha com ID padrão divSubRelEsp_nn
      */
     _conectarContainer() {
-        // Busca container pai
-        const containerPai = document.getElementById('divRelatorio');
-        
-        if (!containerPai) {
-            throw new Error('Container pai #divRelatorio não encontrado no DOM.');
-        }
-        
-        // Gera ID único para análise
-        const contadorExistente = document.querySelectorAll('[id^="divSubRelEsp_"]').length;
-        const novoId = `divSubRelEsp_${String(contadorExistente + 1).padStart(2, '0')}`;
-        
-        // Cria div filha
-        const novoContainer = document.createElement('div');
-        novoContainer.id = novoId;
-        novoContainer.className = `container-analise ${this.cssClass}`;
-        
-        // Anexa ao container pai
-        containerPai.appendChild(novoContainer);
-        
-        // Define como container desta instância
-        this.container = novoContainer;
-        
+        // Usa função global padronizada
+        this.container = criarDivFilhaRelatorio('divSubRelEsp', `container-analise ${this.cssClass}`);
         return this.container;
     }
     
@@ -1483,50 +1442,31 @@ export class GridChart {
      * Cria div filha com ID padrão divSubRelChart_nn
      */
     _conectarContainer() {
-        // Busca container pai
-        const containerPai = document.getElementById('divRelatorio');
-        
-        if (!containerPai) {
-            throw new Error('Container pai #divRelatorio não encontrado no DOM.');
-        }
-        
-        // Gera ID único para gráfico
-        const contadorExistente = document.querySelectorAll('[id^="divSubRelChart_"]').length;
-        const novoId = `divSubRelChart_${String(contadorExistente + 1).padStart(2, '0')}`;
-        
-        // Cria div filha
-        const novoContainer = document.createElement('div');
-        novoContainer.id = novoId;
-        novoContainer.className = 'container-grafico';
-        
-        // Anexa ao container pai
-        containerPai.appendChild(novoContainer);
-        
-        // Define como container desta instância
-        this.container = novoContainer;
-        
+        // Usa função global padronizada
+        this.container = criarDivFilhaRelatorio('divSubRelChart', 'container-grafico');
         return this.container;
     }
     
     /**
      * Posiciona a div do gráfico conforme this.posicao
      */
-    _posicionarDiv() {
+    _posicionarDivFilha() {
         if (!this.container) {
             this._conectarContainer();
         }
         
         if (this.posicao.length === 0) {
-            // Posicionamento automático (fluxo normal)
+            // Posicionamento automático (fluxo normal do HTML)
             this.container.style.position = 'relative';
             this.container.style.left = 'auto';
             this.container.style.top = 'auto';
         } else {
-            // Posicionamento específico [x, y]
+            // Posicionamento específico [x, y] em pixels
             const [x, y] = this.posicao;
             this.container.style.position = 'absolute';
             this.container.style.left = `${x}px`;
             this.container.style.top = `${y}px`;
+            console.log(`🔧 GridChart posicionado em: position: absolute, left: ${x}px, top: ${y}px`);
         }
     }
     
@@ -1720,7 +1660,7 @@ export class GridChart {
             this.container.innerHTML = '';
             this.container.appendChild(canvas);
             
-            // Aplica estilos ao container
+            // Aplica estilos ao container ANTES do posicionamento
             this.container.style.width = `${this.largura}px`;
             this.container.style.height = `${this.altura}px`;
             this.container.style.border = '1px solid #ddd';
@@ -1729,9 +1669,6 @@ export class GridChart {
             this.container.style.backgroundColor = '#fff';
             this.container.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
             
-            // Aplica posicionamento
-            this._posicionarDiv();
-            
             // Cria instância Chart.js
             const ctx = canvas.getContext('2d');
             const config = this._gerarConfiguracoes();
@@ -1739,6 +1676,11 @@ export class GridChart {
             
             // Remove classe hidden se existir
             this.container.classList.remove('hidden');
+            
+            // ===== APLICA POSICIONAMENTO APÓS CHART.JS TERMINAR =====
+            setTimeout(() => {
+                this._posicionarDivFilha();
+            }, 100);
             
             console.log(`✅ GridChart "${this.titulo}" criado no container ${this.container.id}`);
             
@@ -1783,6 +1725,16 @@ export class GridChart {
         
         console.log('✅ Dados do gráfico atualizados');
     }
+
+    /**
+     * Atualiza a posição do gráfico (pode ser chamado após criação)
+     * @param {Array<number>} novaPosicao - Nova posição [x, y] ou [] para automático
+     */
+    atualizarPosicao(novaPosicao) {
+        this.posicao = novaPosicao || [];
+        this._posicionarDivFilha();
+        console.log('✅ Posição do gráfico atualizada');
+    }
     
     /**
      * Oculta o gráfico
@@ -1807,4 +1759,37 @@ export class GridChart {
             this.container = null;
         }
     }
+}
+
+// ===== ***** FUNÇÕES AUXILIARES ***** =====
+
+/**
+ * FUNÇÃO GLOBAL PARA CRIAR DIVS FILHAS PADRONIZADAS
+ * Centraliza a criação de containers para todas as classes
+ * @param {string} prefixoId - Prefixo para o ID da div (ex: 'divSubRel', 'divSubRelChart')
+ * @param {string} className - Classe CSS a ser aplicada
+ * @returns {HTMLElement} Container criado e anexado ao DOM
+ */
+function criarDivFilhaRelatorio(prefixoId = 'divSubRel', className = 'container-sub-relatorio') {
+    // Busca container pai
+    const containerPai = document.getElementById('divRelatorio');
+    
+    if (!containerPai) {
+        throw new Error('Container pai #divRelatorio não encontrado no DOM. Verifique se o HTML possui este elemento.');
+    }
+    
+    // Gera ID único usando contador global
+    contadorContainers++;
+    const numeroFormatado = String(contadorContainers).padStart(2, '0');
+    const novoId = `${prefixoId}_${numeroFormatado}`;
+    
+    // Cria div filha com ID único
+    const novoContainer = document.createElement('div');
+    novoContainer.id = novoId;
+    novoContainer.className = className;
+    
+    // Anexa ao container pai
+    containerPai.appendChild(novoContainer);
+    
+    return novoContainer;
 }

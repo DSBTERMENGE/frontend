@@ -404,3 +404,50 @@ export function CriaTituloDeRelatorios(titulo, descricao, containerId) {
         error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao criar título: ${error.message}`);
     }
 }
+
+/**
+ * 🗑️ FUNÇÃO DE ENCERRAMENTO DE RELATÓRIOS
+ * Limpa memória, elementos HTML e variáveis do relatório
+ */
+export function encerrarRelatorio() {
+    try {
+        console.log('🗑️ Iniciando encerramento do relatório...');
+        
+        // 1. LIMPAR ELEMENTOS HTML
+        const divRelatorio = document.getElementById('divRelatorio');
+        if (divRelatorio) {
+            divRelatorio.innerHTML = ''; // Remove todos os elementos filhos
+            divRelatorio.classList.add('hidden'); // Oculta o relatório
+        }
+        
+        // 2. DESTRUIR GRÁFICOS Chart.js (se existirem)
+        if (window.Chart && window.Chart.instances) {
+            Object.values(window.Chart.instances).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+        }
+        
+        // 3. LIMPAR CONTADORES DE DIVS
+        if (window.subrelatorio_counter) {
+            window.subrelatorio_counter = 1;
+        }
+        if (window.subrelatorio_esp_counter) {
+            window.subrelatorio_esp_counter = 1;
+        }
+        if (window.subrelatorio_chart_counter) {
+            window.subrelatorio_chart_counter = 1;
+        }
+        
+        // 4. FORÇAR GARBAGE COLLECTION (se disponível)
+        if (window.gc && typeof window.gc === 'function') {
+            window.gc();
+        }
+        
+        console.log('✅ Relatório encerrado e memória limpa');
+        
+    } catch (error) {
+        error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao encerrar relatório: ${error.message}`);
+    }
+}
