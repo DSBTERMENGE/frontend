@@ -448,7 +448,161 @@ export default class api_fe {
     }
     
     /**
-     * 🔍 Executa SQL personalizado diretamente no banco de dados
+     * � Atualiza múltiplos registros em lote (operação em massa)
+     * FUNÇÃO GENÉRICA: Pode ser usada para qualquer tabela do sistema
+     * 
+     * Performance: 1 requisição HTTP + loop interno de UPDATEs + 1 COMMIT
+     * Muito mais rápido que N chamadas individuais de update_data()
+     * 
+     * Ideal para:
+     * - Reclassificação de despesas em massa
+     * - Atualização de preços de produtos
+     * - Alteração de status em múltiplos registros
+     * - Qualquer operação que precise atualizar muitos registros
+     * 
+     * @param {string} tabela_alvo - Nome da tabela para UPDATE (ex: 'despesas', 'produtos')
+     * @param {Array<Object>} dados_lote - Array de objetos com dados para atualizar
+     *                                     Cada objeto deve conter a PK + campos a atualizar
+     *                                     Ex: [{iddespesa: 1234, idgrupo: 3, idsubgrupo: 5}, ...]
+     * @param {string} pk_field - Nome do campo chave primária (ex: 'iddespesa', 'idproduto')
+     * @param {Array<string>} [campos_permitidos] - Lista de campos permitidos para atualização (segurança)
+     *                                              Ex: ['idgrupo', 'idsubgrupo']
+     *                                              Se não fornecido, atualiza todos os campos enviados (exceto PK)
+     * @returns {Promise<Object>} Resultado com estatísticas:
+     *                            {
+     *                                sucesso: true/false,
+     *                                total_processados: 1000,
+     *                                atualizados: 950,
+     *                                erros: 50,
+     *                                erros_detalhes: [{registro: {...}, erro: "..."}]
+     *                            }
+     * 
+     * @example Reclassificação de despesas
+     * const resultado = await api.atualizar_lote(
+     *     'despesas',
+     *     [
+     *         {iddespesa: 1234, idgrupo: 3, idsubgrupo: 5},
+     *         {iddespesa: 1235, idgrupo: 2, idsubgrupo: 8},
+     *         {iddespesa: 1236, idgrupo: 3, idsubgrupo: 5}
+     *     ],
+     *     'iddespesa',
+     *     ['idgrupo', 'idsubgrupo']  // Só permite atualizar esses campos
+     * );
+     * 
+     * if (resultado.sucesso) {
+     *     console.log(`✅ ${resultado.atualizados} registros atualizados`);
+     *     console.log(`⚠️ ${resultado.erros} erros encontrados`);
+     * }
+     * 
+     * @example Atualização de preços em massa
+     * const resultado = await api.atualizar_lote(
+     *     'produtos',
+     *     [
+     *         {idproduto: 10, preco: 25.50, estoque: 100},
+     *         {idproduto: 11, preco: 30.00, estoque: 50}
+     *     ],
+     *     'idproduto',
+     *     ['preco', 'estoque']
+     * );
+     * 
+     * @example Sem filtro de campos (atualiza todos os campos enviados)
+     * const resultado = await api.atualizar_lote(
+     *     'clientes',
+     *     [{idcliente: 1, ativo: 0, observacao: 'Inativo'}],
+     *     'idcliente'
+     *     // Sem campos_permitidos = atualiza todos os campos (exceto PK)
+     * );
+     */
+    async atualizar_lote(tabela_alvo, dados_lote, pk_field, campos_permitidos = null) {
+        try {
+            flow_marker('🔄 atualizar_lote() iniciado', {
+                tabela: tabela_alvo,
+                total_registros: dados_lote ? dados_lote.length : 0,
+                pk: pk_field
+            });
+            
+            // =================================================================
+            // VALIDAÇÕES
+            // =================================================================
+            
+            if (!tabela_alvo) {
+                throw new Error("Parâmetro 'tabela_alvo' não fornecido");
+            }
+            
+            if (!dados_lote || !Array.isArray(dados_lote) || dados_lote.length === 0) {
+                throw new Error("Parâmetro 'dados_lote' deve ser um array não vazio");
+            }
+            
+            if (!pk_field) {
+                throw new Error("Parâmetro 'pk_field' não fornecido");
+            }
+            
+            // Validar que todos os registros têm a PK
+            const registros_sem_pk = dados_lote.filter(reg => !reg[pk_field]);
+            if (registros_sem_pk.length > 0) {
+                throw new Error(`${registros_sem_pk.length} registro(s) sem campo PK '${pk_field}'`);
+            }
+            
+            // =================================================================
+            // MONTA PAYLOAD
+            // =================================================================
+            
+            const url = `${this.const_backend_url}/atualizar_lote`;
+            const payload = {
+                tabela_alvo: tabela_alvo,
+                dados_lote: dados_lote,
+                pk_field: pk_field,
+                campos_permitidos: campos_permitidos,
+                database_name: this.const_database_name || "",
+                database_path: this.const_database_path || ""
+            };
+            
+            flow_marker(`🌐 Enviando UPDATE em lote para: ${url}`, {
+                tabela: tabela_alvo,
+                registros: dados_lote.length,
+                campos_permitidos: campos_permitidos
+            });
+            
+            // =================================================================
+            // EXECUTA REQUISIÇÃO
+            // =================================================================
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: this.const_headers,
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
+            const resultado = await response.json();
+            
+            flow_marker('✅ atualizar_lote() concluído', {
+                sucesso: resultado.sucesso,
+                total_processados: resultado.total_processados || 0,
+                atualizados: resultado.atualizados || 0,
+                erros: resultado.erros || 0
+            });
+            
+            return resultado;
+            
+        } catch (error) {
+            error_catcher('Erro no atualizar_lote', error);
+            return { 
+                sucesso: false, 
+                erro: error.message,
+                total_processados: 0,
+                atualizados: 0,
+                erros: 0
+            };
+        }
+    }
+    
+    /**
+     * �🔍 Executa SQL personalizado diretamente no banco de dados
      * 
      * Permite execução de consultas SQL customizadas enviadas do frontend.
      * Ideal para consultas complexas, relatórios e operações que não se encaixam

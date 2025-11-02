@@ -25,6 +25,8 @@ export function executarOperacao(dados, nomeColuna, tipoOperacao) {
     switch (tipoOperacao) {
         case 'Tot':
         case 'Sum':
+
+
             return calcularSoma(dados, nomeColuna);
         
         case 'Med':
@@ -381,24 +383,30 @@ export function formatarResultado(resultado, nomeColuna) {
  */
 export function CriaTituloDeRelatorios(titulo, descricao, containerId) {
     try {
-        let containerDestino;
+        // Busca os elementos h1 e h2 fixos criados no HTML (estrutura base do index.html)
+        const h1 = document.getElementById('h1TituloRelatorio');
+        const h2 = document.getElementById('h2DescricaoRelatorio');
         
-        if (containerId === "Relatorio") {
-            containerDestino = document.getElementById('divTituloRelatorio');
-        } else {
-            containerDestino = document.getElementById(containerId);
+        if (!h1 || !h2) {
+            throw new Error('Elementos h1TituloRelatorio ou h2DescricaoRelatorio não encontrados no DOM');
         }
         
-        if (!containerDestino) {
-            throw new Error(`Container "${containerId}" não encontrado no DOM`);
+        // Popula os elementos com os valores recebidos
+        h1.textContent = titulo;
+        h2.textContent = descricao || '';
+        
+        // Garantir que o container principal de relatórios esteja visível
+        try {
+            const divRelatorio = document.getElementById('divRelatorio');
+            if (divRelatorio && divRelatorio.classList.contains('hidden')) {
+                divRelatorio.classList.remove('hidden');
+                // opcional: garantir display padrão caso haja regras CSS que escondam
+                divRelatorio.style.display = divRelatorio.style.display || '';
+            }
+        } catch (e) {
+            // não interromper a criação do título por causa deste ajuste
+            console.warn('CriaTituloDeRelatorios: não foi possível garantir visibilidade de #divRelatorio', e);
         }
-        
-        const tituloHTML = `
-            <h2 style="margin: 0 0 0.5rem 0; color: #003366; font-size: 1.5rem; text-align: center;">${titulo}</h2>
-            ${descricao ? `<p style="margin: 0 0 1rem 0; color: #666; font-size: 0.9rem; text-align: center; font-style: italic;">${descricao}</p>` : ''}
-        `;
-        
-        containerDestino.innerHTML = tituloHTML;
         
     } catch (error) {
         error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao criar título: ${error.message}`);
@@ -416,7 +424,35 @@ export function encerrarRelatorio() {
         // 1. LIMPAR ELEMENTOS HTML
         const divRelatorio = document.getElementById('divRelatorio');
         if (divRelatorio) {
-            divRelatorio.innerHTML = ''; // Remove todos os elementos filhos
+            // NÃO remover toda a estrutura do container (preservar título/controles estáticos)
+            // Remover apenas os filhos dinâmicos do relatório, preservando o elemento
+            // estrutural `#divTituloRelatorio` (onde ficam os botões de controle).
+            const children = Array.from(divRelatorio.children);
+            for (const child of children) {
+                if (child.id === 'divTituloRelatorio') {
+                    // Limpar somente o conteúdo textual do título (se existir wrapper)
+                    const wrapper = child.querySelector('.titulo-rel-wrapper');
+                    if (wrapper) {
+                        wrapper.innerHTML = '';
+                    } else {
+                        // Se não houver wrapper, tente limpar h2/p diretos
+                        const h2 = child.querySelector('h2');
+                        if (h2) h2.textContent = '';
+                        const p = child.querySelector('p');
+                        if (p) p.textContent = '';
+                    }
+                    // Preserve o elemento de título (não remover)
+                    continue;
+                }
+
+                // Remover elementos dinâmicos do relatório
+                try {
+                    if (child.parentNode) child.parentNode.removeChild(child);
+                } catch (e) {
+                    // ignorar erro de remoção e continuar
+                    console.warn('Não foi possível remover child do divRelatorio:', e);
+                }
+            }
             divRelatorio.classList.add('hidden'); // Oculta o relatório
         }
         
@@ -449,5 +485,67 @@ export function encerrarRelatorio() {
         
     } catch (error) {
         error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao encerrar relatório: ${error.message}`);
+    }
+}
+
+/**
+ * Popula uma <select> HTML com opções vindas de uma consulta SQL.
+ * @param {HTMLElement|string} selectOrId - elemento <select> ou id do elemento
+ * @param {string} sql - consulta SQL que retorna linhas com colunas para value/label
+ * @param {Object} [options]
+ * @param {string} [options.valueCol] - nome da coluna a usar como value (se ausente usa primeira coluna)
+ * @param {string} [options.labelCol] - nome da coluna a usar como label (se ausente usa value)
+ * @param {boolean} [options.includeTodos=true] - incluir opção inicial 'TODOS' com value ''
+ * @returns {Promise<Array<{value:string,label:string}>>} array de opções populadas
+ */
+export async function populaSelectFiltro(selectOrId, sql, options = {}) {
+    const { valueCol = null, labelCol = null, includeTodos = true } = options;
+
+    // localizar elemento
+    let selectEl = null;
+    if (typeof selectOrId === 'string') selectEl = document.getElementById(selectOrId);
+    else if (selectOrId instanceof HTMLElement) selectEl = selectOrId;
+
+    if (!selectEl) {
+        console.warn('populaSelectFiltro: select não encontrado', selectOrId);
+        return [];
+    }
+
+    // limpar select e colocar placeholder de carregamento
+    selectEl.innerHTML = '';
+    if (includeTodos) {
+        selectEl.appendChild(new Option('TODOS', ''));
+    }
+    const loadingOption = new Option('Carregando...', '');
+    loadingOption.disabled = true;
+    selectEl.appendChild(loadingOption);
+
+    try {
+        const res = await window.api_rel_info.executar_sql(sql, window.api_rel_info.const_database_path, window.api_rel_info.const_database_name);
+        // remover loading
+        try { selectEl.removeChild(loadingOption); } catch (e) {}
+
+        const rows = res && Array.isArray(res.dados) ? res.dados : [];
+        const opts = [];
+        for (const row of rows) {
+            // determinar value e label
+            let value;
+            if (valueCol && row.hasOwnProperty(valueCol)) value = row[valueCol];
+            else value = row[Object.keys(row)[0]];
+
+            let label;
+            if (labelCol && row.hasOwnProperty(labelCol)) label = row[labelCol];
+            else label = value;
+
+            const opt = new Option(String(label), String(value));
+            selectEl.appendChild(opt);
+            opts.push({ value: String(value), label: String(label) });
+        }
+
+        return opts;
+    } catch (error) {
+        console.warn('populaSelectFiltro: erro ao executar SQL', error);
+        try { selectEl.removeChild(loadingOption); } catch (e) {}
+        return [];
     }
 }

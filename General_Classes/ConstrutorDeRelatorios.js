@@ -1761,6 +1761,178 @@ export class GridChart {
     }
 }
 
+// ===============================================================================
+// 🔎 CLASSE GRIDLFiltros - CONTRUÇÃO DE FILTROS DINÂMICOS
+// ===============================================================================
+/**
+ * GridFiltros
+ * Configuração mínima:
+ *  new GridFiltros({ titulo: 'Filtros', fields: [ {key,label,type:'select', optionsProvider: async ()=>[...] } ] })
+ *
+ * Comportamento:
+ * - render(parentId='divRelatorio') cria uma div filha do container de relatórios
+ *   seguindo o padrão divSubRelFiltro_N (preservando o padrão do projeto)
+ * - para cada field do tipo 'select', chama field.optionsProvider() (se existir)
+ *   para popular o select (assíncrono). optionsProvider deve retornar array {value,label}
+ * - fornece onApply(cb) para registrar callback quando o usuário clicar em Aplicar
+ * - dispara CustomEvent 'gridfiltros:apply' no container com detail = values
+ */
+export class GridFiltros {
+    constructor(config = {}) {
+        this.titulo = config.titulo || '';
+        this.fields = Array.isArray(config.fields) ? config.fields : [];
+        this.posicao = config.posicao || [];
+        this.container = null;
+        this._callbacks = [];
+        this._id = `divSubRelFiltro_${++contadorContainers}`;
+    }
+
+    // Cria o container e renderiza os controles
+    async render(parentId = 'divRelatorio') {
+        const parent = document.getElementById(parentId) || document.body;
+
+        // Tentar usar helper global criarDivFilhaRelatorio quando disponível
+        if (typeof criarDivFilhaRelatorio === 'function') {
+            this.container = criarDivFilhaRelatorio('divSubRelFiltro', this._id);
+        } else {
+            // fallback: criar manualmente
+            this.container = document.createElement('div');
+            this.container.id = this._id;
+            this.container.className = 'divSubRelFiltro';
+            parent.appendChild(this.container);
+        }
+
+        // aplicar posição se definida
+        if (this.posicao && this.posicao.length === 2) {
+            this.container.style.position = 'absolute';
+            this.container.style.left = `${this.posicao[0]}px`;
+            this.container.style.top = `${this.posicao[1]}px`;
+        }
+
+        // Cabecalho
+        if (this.titulo) {
+            const h = document.createElement('h4');
+            h.textContent = this.titulo;
+            h.style.margin = '0 0 0.4rem 0';
+            this.container.appendChild(h);
+        }
+
+        const form = document.createElement('div');
+        form.className = 'grid-filtros-form';
+        this.container.appendChild(form);
+
+        // criar campos
+        for (const field of this.fields) {
+            const fieldWrapper = document.createElement('div');
+            fieldWrapper.className = 'grid-filtros-field';
+            fieldWrapper.style.display = 'inline-block';
+            fieldWrapper.style.marginRight = '0.5rem';
+            fieldWrapper.style.verticalAlign = 'middle';
+
+            const label = document.createElement('label');
+            label.textContent = field.label || field.key || '';
+            label.style.display = 'block';
+            label.style.fontSize = '0.85rem';
+            label.style.marginBottom = '0.15rem';
+            fieldWrapper.appendChild(label);
+
+            if (field.type === 'select') {
+                const select = document.createElement('select');
+                select.name = field.key;
+                select.dataset.fieldKey = field.key;
+                select.style.minWidth = '120px';
+                select.appendChild(new Option('--', ''));
+
+                // popular via optionsProvider (assíncrono) ou via options estático
+                if (typeof field.optionsProvider === 'function') {
+                    try {
+                        const opts = await field.optionsProvider();
+                        if (Array.isArray(opts)) {
+                            for (const o of opts) {
+                                select.appendChild(new Option(o.label, o.value));
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Erro ao popular select via optionsProvider:', e);
+                    }
+                } else if (Array.isArray(field.options)) {
+                    for (const o of field.options) {
+                        select.appendChild(new Option(o.label, o.value));
+                    }
+                }
+
+                if (field.value != null) select.value = field.value;
+                fieldWrapper.appendChild(select);
+            } else {
+                // fallback: input text
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = field.key;
+                input.dataset.fieldKey = field.key;
+                if (field.value != null) input.value = field.value;
+                fieldWrapper.appendChild(input);
+            }
+
+            form.appendChild(fieldWrapper);
+        }
+
+        // botões
+        const btnWrapper = document.createElement('div');
+        btnWrapper.className = 'grid-filtros-actions';
+        btnWrapper.style.display = 'inline-block';
+        btnWrapper.style.verticalAlign = 'middle';
+        btnWrapper.style.marginLeft = '0.5rem';
+
+        const btnApply = document.createElement('button');
+        btnApply.type = 'button';
+        btnApply.textContent = 'Aplicar';
+        btnApply.className = 'btn-apply-filtros';
+        btnApply.addEventListener('click', () => this._handleApply());
+        btnWrapper.appendChild(btnApply);
+
+        form.appendChild(btnWrapper);
+
+        return this.container;
+    }
+
+    // Retorna um objeto com os valores dos campos
+    getValues() {
+        if (!this.container) return {};
+        const values = {};
+        const elements = this.container.querySelectorAll('[data-field-key]');
+        elements.forEach(el => {
+            const key = el.dataset.fieldKey;
+            values[key] = el.value;
+        });
+        return values;
+    }
+
+    onApply(cb) {
+        if (typeof cb === 'function') this._callbacks.push(cb);
+    }
+
+    _handleApply() {
+        const values = this.getValues();
+        // chamar callbacks
+        for (const cb of this._callbacks) {
+            try { cb(values); } catch (e) { console.error(e); }
+        }
+        // disparar evento customizado no container
+        if (this.container) {
+            const ev = new CustomEvent('gridfiltros:apply', { detail: values });
+            this.container.dispatchEvent(ev);
+        }
+    }
+
+    // Remove container e listeners
+    destroy() {
+        if (this.container && this.container.parentNode) {
+            this.container.parentNode.removeChild(this.container);
+            this.container = null;
+        }
+    }
+}
+
 // ===== ***** FUNÇÕES AUXILIARES ***** =====
 
 /**
