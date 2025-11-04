@@ -1205,7 +1205,10 @@ function AlertaEstadoDeEdicao_Inclusao() {
 function _repopularSelectDePesquisa() {
     try {
         // 🔍 VALIDAÇÕES INICIAIS
-        if (!window.api_info?.configSelects?.campos) {
+        // Busca configSelects primeiro em form_ativo, depois diretamente em api_info (fallback)
+        const configSelects = window.api_info?.form_ativo?.configSelects || window.api_info?.configSelects;
+        
+        if (!configSelects?.campos) {
             console.log('📋 Formulário não possui selects configuradas - skip repopulação');
             return true; // Não é erro, apenas não há selects
         }
@@ -1221,7 +1224,6 @@ function _repopularSelectDePesquisa() {
         }
         
         // 🎯 DETECÇÃO AUTOMÁTICA DA SELECT DE PESQUISA
-        const configSelects = window.api_info.configSelects;
         const campos = configSelects.campos;
         
         // Select de pesquisa = último campo configurado

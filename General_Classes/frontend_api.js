@@ -363,7 +363,8 @@ export default class api_fe {
                 database_name: this.const_database_name || "",
                 database_path: this.const_database_path || "",
                 dados: dados_para_update,
-                application_path: this.const_application_path
+                application_path: this.const_application_path,
+                filtros: this.filtros || ""
             };
             
             flow_marker(`🌐 Enviando UPDATE para: ${url}`, payload);
@@ -419,7 +420,8 @@ export default class api_fe {
                 database_name: this.const_database_name || "",
                 database_path: this.const_database_path || "",
                 dados: dados_novo_registro,
-                application_path: this.const_application_path
+                application_path: this.const_application_path,
+                filtros: this.filtros || ""
             };
             
             flow_marker(`🌐 Enviando INSERT para: ${url}`, payload);
