@@ -1831,9 +1831,19 @@ export class GridFiltros {
 
             const label = document.createElement('label');
             label.textContent = field.label || field.key || '';
-            label.style.display = 'block';
             label.style.fontSize = '0.85rem';
-            label.style.marginBottom = '0.15rem';
+            
+            // Checkbox: label e input na mesma linha
+            if (field.type === 'checkbox') {
+                label.style.display = 'inline-block';
+                label.style.marginLeft = '0.3rem';
+                label.style.verticalAlign = 'middle';
+                label.style.cursor = 'pointer';
+            } else {
+                label.style.display = 'block';
+                label.style.marginBottom = '0.15rem';
+            }
+            
             fieldWrapper.appendChild(label);
 
             if (field.type === 'select') {
@@ -1863,6 +1873,19 @@ export class GridFiltros {
 
                 if (field.value != null) select.value = field.value;
                 fieldWrapper.appendChild(select);
+            } else if (field.type === 'checkbox') {
+                // Suporte a checkbox - INSERIR ANTES DO LABEL
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.name = field.key;
+                input.dataset.fieldKey = field.key;
+                input.checked = field.value || false;
+                input.style.width = 'auto';
+                input.style.cursor = 'pointer';
+                input.style.verticalAlign = 'middle';
+                
+                // Inserir checkbox ANTES do label (já foi appendChild acima)
+                fieldWrapper.insertBefore(input, label);
             } else {
                 // fallback: input text
                 const input = document.createElement('input');
@@ -1902,7 +1925,8 @@ export class GridFiltros {
         const elements = this.container.querySelectorAll('[data-field-key]');
         elements.forEach(el => {
             const key = el.dataset.fieldKey;
-            values[key] = el.value;
+            // Checkbox retorna boolean (checked), outros retornam string (value)
+            values[key] = el.type === 'checkbox' ? el.checked : el.value;
         });
         return values;
     }
