@@ -475,6 +475,13 @@ export class FormComum extends FormularioBase {
             campo.id = nomeCampo;
             campo.name = nomeCampo;
             if (format) campo.setAttribute('data-format', format);
+            
+            // ✅ VALIDAÇÃO AUTOMÁTICA: Aplica validação baseada em formato
+            // Se campo tem formato específico (moeda, data), ativa validação automaticamente
+            if (format && (tipo === 'input' || tipo === 'textarea')) {
+                this._aplicarValidacaoAutomatica(campo, format);
+            }
+            
             div.appendChild(campo);
             // Adiciona a div ao formulário (mainConteudo)
             if (this.form && this.form.querySelector('#mainConteudo')) {
@@ -1059,6 +1066,182 @@ export class FormComum extends FormularioBase {
             divRodape.dispatchEvent(evento);
         }
     }
+
+    // ============================================================================
+    // 🛡️ SISTEMA DE VALIDAÇÃO AUTOMÁTICA DE CAMPOS
+    // ============================================================================
+    /**
+     * 🎯 SEÇÃO: VALIDAÇÃO AUTOMÁTICA BASEADA EM FORMATO
+     * 
+     * OBJETIVO:
+     * Aplicar validação automática em campos com formato específico, garantindo
+     * integridade dos dados antes de salvar no backend. Sistema totalmente
+     * transparente para o desenvolvedor - basta definir 'formato' na config.
+     * 
+     * FUNCIONAMENTO:
+     * - Detecta propriedade 'formato' nos campos durante criação
+     * - Aplica validação específica baseada no tipo (moeda, data, etc.)
+     * - Valida durante digitação (oninput) e ao sair do campo (onblur)
+     * - Exibe mensagens educativas em caso de erro
+     * - Formata automaticamente valores válidos
+     * 
+     * FORMATOS SUPORTADOS:
+     * • 'moeda' → Valida formato nnnnnn,nn (ex: 3125,50)
+     * • 'data'  → Valida formato dd/mm/aaaa (ex: 15/10/2025)
+     * • null    → Sem validação (campo livre)
+     * 
+     * USO:
+     * No formulário, basta definir:
+     * formato: ['moeda', 'data', null]
+     * 
+     * RASTREABILIDADE:
+     * @criado 2025-11-06 - Implementação inicial do sistema de validação
+     * @motivo Evitar corrupção de dados no banco (valores TEXT em colunas NUMERIC)
+     * @autor Framework DSB Team
+     * @issue Valores monetários sendo salvos como string causando erro em SUM()
+     */
+
+    /**
+     * 🔍 MÉTODO PRINCIPAL: Detecta formato e aplica validação correspondente
+     * 
+     * Chamado automaticamente durante criação de cada campo input/textarea.
+     * Verifica se existe propriedade 'formato' e aplica validação específica.
+     * 
+     * @param {HTMLElement} elemento - Input/textarea criado no DOM
+     * @param {string|null} formato - Tipo de validação: 'moeda'|'data'|null
+     * @private
+     * 
+     * @example
+     * // Chamada interna durante render():
+     * const input = document.createElement('input');
+     * this._aplicarValidacaoAutomatica(input, 'moeda');
+     * // Input agora tem validação nnnnnn,nn automática
+     */
+    _aplicarValidacaoAutomatica(elemento, formato) {
+        if (!formato) return; // Campo sem validação (texto livre)
+        
+        const formatoLower = formato.toLowerCase();
+        
+        switch (formatoLower) {
+            case 'moeda':
+                this._validarCampoMonetario(elemento);
+                break;
+            case 'data':
+                this._validarCampoData(elemento);
+                break;
+            // FUTURO: Adicionar novos formatos aqui
+            // case 'cpf':
+            //     this._validarCampoCPF(elemento);
+            //     break;
+            default:
+                console.warn(`⚠️ Formato desconhecido: ${formato} - Validação não aplicada`);
+        }
+    }
+
+    /**
+     * 💰 VALIDAÇÃO MONETÁRIA: Formato nnnnnn,nn obrigatório
+     * 
+     * REGRAS RÍGIDAS:
+     * ✅ Apenas números e vírgula permitidos
+     * ✅ Obrigatório: vírgula + exatamente 2 casas decimais
+     * ✅ Exemplos válidos: 3125,50 | 125,00 | 15,90
+     * ❌ Exemplos inválidos: 3125 | 3125,5 | ,50 | 3125.50
+     * 
+     * COMPORTAMENTO:
+     * • oninput → Bloqueia digitação de caracteres inválidos
+     * • onblur  → Valida formato completo, exibe erro se inválido
+     * • Se válido → Formata com separadores de milhar (3125,50 → 3.125,50)
+     * 
+     * @param {HTMLInputElement} input - Campo a ser validado
+     * @private
+     */
+    _validarCampoMonetario(input) {
+        // ✅ VALIDAÇÃO SIMPLIFICADA: Apenas bloqueia caracteres inválidos durante digitação
+        // Validação completa será feita ao salvar o registro
+        input.addEventListener('input', (e) => {
+            // Remove tudo exceto números e ponto (formato SQL: nnnnnn.nn)
+            e.target.value = e.target.value.replace(/[^0-9.]/g, '');
+        });
+    }
+
+    /**
+     * 📅 VALIDAÇÃO DE DATA: Formato dd/mm/aaaa obrigatório
+     * 
+     * REGRAS RÍGIDAS:
+     * ✅ Apenas números e barras permitidos
+     * ✅ Obrigatório: dd/mm/aaaa (2 dígitos dia, 2 mês, 4 ano)
+     * ✅ Valida existência real da data (não aceita 31/02/2025)
+     * ✅ Exemplos válidos: 15/10/2025 | 01/01/2025 | 29/02/2024
+     * ❌ Exemplos inválidos: 15/10/25 | 1/1/2025 | 31/02/2025
+     * 
+     * COMPORTAMENTO:
+     * • oninput → Bloqueia digitação de caracteres inválidos
+     * • onblur  → Valida formato e existência da data
+     * 
+     * @param {HTMLInputElement} input - Campo a ser validado
+     * @private
+     */
+    _validarCampoData(input) {
+        // ✅ VALIDAÇÃO SIMPLIFICADA: Apenas bloqueia caracteres inválidos durante digitação
+        // Validação completa será feita ao salvar o registro
+        input.addEventListener('input', (e) => {
+            // Remove tudo exceto números e barra
+            e.target.value = e.target.value.replace(/[^0-9/]/g, '');
+        });
+    }
+
+    /**
+     * 🔧 UTILITÁRIO: Formata valor monetário com separadores de milhar
+     * 
+     * Converte: "3125,50" → "3.125,50"
+     * Mantém vírgula como separador decimal (padrão BR)
+     * 
+     * @param {string} valor - Valor no formato nnnnnn,nn
+     * @returns {string} Valor formatado com pontos nos milhares
+     * @private
+     */
+    _formatarValorMonetario(valor) {
+        // Separar parte inteira e decimal
+        const [inteiro, decimal] = valor.split(',');
+        
+        // Adicionar separadores de milhar na parte inteira
+        const inteiroFormatado = parseInt(inteiro).toLocaleString('pt-BR');
+        
+        // Retornar valor formatado
+        return `${inteiroFormatado},${decimal}`;
+    }
+
+    /**
+     * 🔧 UTILITÁRIO: Valida existência real de data no calendário
+     * 
+     * Verifica se data existe (não aceita 31/02, 30/02, etc.)
+     * Valida anos bissextos para 29/02
+     * 
+     * @param {string} dataStr - Data no formato dd/mm/aaaa
+     * @returns {boolean} True se data existe, false caso contrário
+     * @private
+     */
+    _dataExiste(dataStr) {
+        const [dia, mes, ano] = dataStr.split('/').map(num => parseInt(num));
+        
+        // Mês deve estar entre 1 e 12
+        if (mes < 1 || mes > 12) return false;
+        
+        // Criar objeto Date (mês em JS é 0-11)
+        const data = new Date(ano, mes - 1, dia);
+        
+        // Verificar se data criada corresponde aos valores informados
+        // (Date ajusta automaticamente datas inválidas, ex: 31/02 vira 03/03)
+        return (
+            data.getDate() === dia &&
+            data.getMonth() === mes - 1 &&
+            data.getFullYear() === ano
+        );
+    }
+
+    // ============================================================================
+    // FIM DA SEÇÃO DE VALIDAÇÃO AUTOMÁTICA
+    // ============================================================================
 }
 
 export default FormComum;

@@ -22,6 +22,8 @@ FLUXO DE EXECUÇÃO:
 import { flow_marker, error_catcher } from './Debugger.js';
 // Importando funções de gerenciamento de eventos e controles
 import { removerListener, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao, garbageCollector } from './FuncoesAuxilares.js';
+// Importando função de conversão universal de valores
+import { Val } from './FuncoesAuxiliaresRelatorios.js';
 
 
 /**
@@ -1117,7 +1119,19 @@ function _popularFormularioAutomatico(dados) {
             if (elemento.type === 'checkbox') {
                 elemento.checked = !!dados[campo];
             } else {
-                elemento.value = dados[campo] || '';
+                let valorFormatado = dados[campo] || '';
+                
+                // Verifica se campo tem formatação monetária
+                const formatCampo = elemento.getAttribute('data-format');
+                if (formatCampo === 'moeda' && valorFormatado) {
+                    // Converte número para formato brasileiro usando Val() (aceita qualquer formato)
+                    valorFormatado = Val(valorFormatado).toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                }
+                
+                elemento.value = valorFormatado;
             }
 
         } else {

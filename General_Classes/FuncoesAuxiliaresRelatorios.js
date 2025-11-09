@@ -8,6 +8,35 @@ import { flow_marker, error_catcher, unexpected_error_catcher } from './Debugger
 */
 
 /**
+ * 🔢 CONVERSÃO UNIVERSAL - Converte qualquer valor para número
+ * Similar ao Val() do Visual Basic - aceita números, strings formatadas, etc.
+ * @param {any} valor - Valor a converter (número, string formatada "3.125,00", etc)
+ * @returns {number} Valor numérico ou 0 se inválido
+ */
+export function Val(valor) {
+    // Se já é número, retorna direto
+    if (typeof valor === 'number') {
+        return isNaN(valor) ? 0 : valor;
+    }
+    
+    // Se é string, limpa formatação brasileira
+    if (typeof valor === 'string') {
+        // Remove espaços, R$, %, etc
+        let limpo = valor.replace(/[R$%\s]/g, '');
+        // Remove pontos de milhares
+        limpo = limpo.replace(/\./g, '');
+        // Troca vírgula decimal por ponto
+        limpo = limpo.replace(',', '.');
+        // Converte para número
+        const numero = parseFloat(limpo);
+        return isNaN(numero) ? 0 : numero;
+    }
+    
+    // Null, undefined, ou qualquer outra coisa = 0
+    return 0;
+}
+
+/**
  * 🎭 FUNÇÃO ORQUESTRADORA - Executa operação matemática em uma coluna
  * Gerencia todo o processo: validação → cálculo → resultado
  * @param {Array} dados - Array de dados
@@ -73,14 +102,9 @@ export function calcularSoma(dados, nomeColuna) {
     let soma = 0;
     
     for (let i = 0; i < dados.length; i++) {
-        let valor = dados[i][nomeColuna];
-        if (!valor) valor = '0';
-        valor = valor.toString().replace(/[.,]/g, '');
-        if (isNaN(valor)) valor = 0;
-        else valor = (valor / 100).toFixed(2);
-        
-        soma = soma + parseFloat(valor);
+        soma += Val(dados[i][nomeColuna]);
     }
+    
     return soma;
 }
 
@@ -118,15 +142,9 @@ export function calcularMaximo(dados, nomeColuna) {
     let maximo = -Infinity;
     
     for (let i = 0; i < dados.length; i++) {
-        let valor = dados[i][nomeColuna];
-        
-        if (typeof valor === 'string') {
-            valor = valor.replace(/[R$%\s]/g, '').replace(',', '.');
-        }
-        
-        const numeroConvertido = parseFloat(valor);
-        if (!isNaN(numeroConvertido) && numeroConvertido > maximo) {
-            maximo = numeroConvertido;
+        const valor = Val(dados[i][nomeColuna]);
+        if (valor > maximo) {
+            maximo = valor;
         }
     }
     
@@ -143,15 +161,9 @@ export function calcularMinimo(dados, nomeColuna) {
     let minimo = Infinity;
     
     for (let i = 0; i < dados.length; i++) {
-        let valor = dados[i][nomeColuna];
-        
-        if (typeof valor === 'string') {
-            valor = valor.replace(/[R$%\s]/g, '').replace(',', '.');
-        }
-        
-        const numeroConvertido = parseFloat(valor);
-        if (!isNaN(numeroConvertido) && numeroConvertido < minimo) {
-            minimo = numeroConvertido;
+        const valor = Val(dados[i][nomeColuna]);
+        if (valor < minimo) {
+            minimo = valor;
         }
     }
     

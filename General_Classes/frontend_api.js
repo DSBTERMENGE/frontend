@@ -755,30 +755,26 @@ export default class api_fe {
 
             flow_marker('Resposta recebida do backend', dados);
 
-            // Dispara alert imediatamente com a mensagem recebida
+            // Retorna os dados sem disparar alert (canvas.js controlará)
             if (dados.sucesso) {
                 flow_marker('Processamento de extratos concluído com sucesso');
-                alert(`✅ ${dados.msg}`);
                 return {
                     sucesso: true,
-                    msg: dados.msg
+                    mensagem: dados.mensagem || dados.msg
                 };
             } else {
-                flow_marker(`Erro no processamento: ${dados.msg}`);
-                alert(`❌ ${dados.msg}`);
+                flow_marker(`Erro no processamento: ${dados.mensagem || dados.msg}`);
                 return {
                     sucesso: false,
-                    msg: dados.msg
+                    mensagem: dados.mensagem || dados.msg
                 };
             }
 
         } catch (error) {
             error_catcher('Erro no processar_extratos_pdf', error);
-            const msgErro = `Erro de conexão: ${error.message}. Verifique o arquivo log_de_erros.md para detalhes.`;
-            alert(`❌ ${msgErro}`);
             return {
                 sucesso: false,
-                msg: msgErro
+                mensagem: `Erro de conexão: ${error.message}. Verifique o arquivo log_de_erros.md para detalhes.`
             };
         }
     }

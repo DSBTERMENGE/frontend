@@ -14,6 +14,35 @@ import {
     formatarResultado 
 } from './FuncoesAuxiliaresRelatorios.js';
 
+// ===== FUNÇÕES UTILITÁRIAS PARA CONVERSÃO MONETÁRIA =====
+/**
+ * Converte string formatada em moeda brasileira para número puro
+ * @param {string} valorFormatado - Valor no formato "3.125,00" ou "3125,00"
+ * @returns {number} - Número puro: 3125.00
+ * @example converterMoedaParaNumero("3.125,00") // retorna 3125.00
+ */
+function converterMoedaParaNumero(valorFormatado) {
+    if (typeof valorFormatado === 'number') return valorFormatado;
+    if (!valorFormatado || valorFormatado === '') return 0;
+    // Remove pontos de milhar e substitui vírgula por ponto
+    const valorLimpo = String(valorFormatado).replace(/\./g, '').replace(',', '.');
+    return parseFloat(valorLimpo) || 0;
+}
+
+/**
+ * Converte número puro para formato de moeda brasileira
+ * @param {number} numero - Número puro: 3125.00
+ * @returns {string} - Valor formatado: "3.125,00"
+ * @example converterNumeroParaMoeda(3125.00) // retorna "3.125,00"
+ */
+function converterNumeroParaMoeda(numero) {
+    if (typeof numero !== 'number') numero = parseFloat(numero) || 0;
+    return numero.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+    });
+}
+
 // ===== CONTADOR GLOBAL PARA CONTAINERS ÚNICOS =====
 let contadorContainers = 0;
 
@@ -374,10 +403,16 @@ let contadorContainers = 0;
         if (valor === null || valor === undefined) return '';
         
         switch (formato) {
-            case 'M': // Moeda
+            case 'M': // Moeda COM símbolo (R$ 3.125,00)
                 return new Intl.NumberFormat('pt-BR', {
                     style: 'currency',
                     currency: 'BRL'
+                }).format(Number(valor) || 0);
+                
+            case 'V': // Valor monetário SEM símbolo (3.125,00)
+                return new Intl.NumberFormat('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
                 }).format(Number(valor) || 0);
                 
             case '%': // Percentual
@@ -1892,7 +1927,43 @@ export class GridFiltros {
                 input.type = 'text';
                 input.name = field.key;
                 input.dataset.fieldKey = field.key;
-                if (field.value != null) input.value = field.value;
+                
+                // Detectar campo monetário (type='currency' ou formato='M' ou formato='moeda')
+                const isCurrency = field.type === 'currency' || 
+                                  field.formato === 'M' || 
+                                  field.formato === 'moeda';
+                
+                if (isCurrency) {
+                    // Marcar como campo monetário
+                    input.dataset.tipoMonetario = 'true';
+                    input.placeholder = '0,00';
+                    
+                    // Formatar valor inicial se existir
+                    if (field.value != null) {
+                        const valorNumerico = typeof field.value === 'number' ? 
+                                             field.value : 
+                                             converterMoedaParaNumero(field.value);
+                        input.value = converterNumeroParaMoeda(valorNumerico);
+                    }
+                    
+                    // Adicionar formatação automática durante digitação
+                    input.addEventListener('input', (e) => {
+                        // Remove tudo exceto números
+                        let apenasNumeros = e.target.value.replace(/\D/g, '');
+                        if (!apenasNumeros) {
+                            e.target.value = '';
+                            return;
+                        }
+                        // Converte para número (centavos) e divide por 100
+                        const valorNumerico = parseInt(apenasNumeros) / 100;
+                        // Formata de volta
+                        e.target.value = converterNumeroParaMoeda(valorNumerico);
+                    });
+                } else {
+                    // Campo não-monetário: apenas atribui valor
+                    if (field.value != null) input.value = field.value;
+                }
+                
                 fieldWrapper.appendChild(input);
             }
 
@@ -1925,8 +1996,18 @@ export class GridFiltros {
         const elements = this.container.querySelectorAll('[data-field-key]');
         elements.forEach(el => {
             const key = el.dataset.fieldKey;
-            // Checkbox retorna boolean (checked), outros retornam string (value)
-            values[key] = el.type === 'checkbox' ? el.checked : el.value;
+            const tipoMonetario = el.dataset.tipoMonetario === 'true';
+            
+            if (el.type === 'checkbox') {
+                // Checkbox retorna boolean
+                values[key] = el.checked;
+            } else if (tipoMonetario) {
+                // Campo monetário: converte "3.125,00" → 3125.00
+                values[key] = converterMoedaParaNumero(el.value);
+            } else {
+                // Outros campos retornam string
+                values[key] = el.value;
+            }
         });
         return values;
     }
