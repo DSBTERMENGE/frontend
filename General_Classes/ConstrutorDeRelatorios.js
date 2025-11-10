@@ -1422,6 +1422,7 @@ export class GridAnalise {
  * Utiliza Chart.js para criar gráficos modernos e responsivos:
  * - Gráficos de pizza, barras, linhas, donut
  * - Configuração flexível de dados e cores
+ * - Arranjo horizontal ou vertical configurável
  * - Container único divSubRelChart_nn
  * - Integração automática com Chart.js
  * 
@@ -1429,9 +1430,18 @@ export class GridAnalise {
  * const grafico = new GridChart();
  * grafico.titulo = "Despesas por Categoria";
  * grafico.tipo = "pizza";
+ * grafico.arranjo = "horizontal";  // Legenda à direita
  * grafico.labels = ["Alimentação", "Transporte", "Lazer"];
  * grafico.valores = [1200, 800, 400];
  * grafico.criarGrafico();
+ * 
+ * @example
+ * const colunas = new GridChart();
+ * colunas.tipo = "barras";
+ * colunas.arranjo = "vertical";  // Colunas verticais
+ * colunas.labels = ["Jan", "Fev", "Mar"];
+ * colunas.valores = [1000, 1500, 1200];
+ * colunas.criarGrafico();
  */
 export class GridChart {
     
@@ -1442,6 +1452,13 @@ export class GridChart {
         
         /** @type {string} Tipo do gráfico: 'pizza', 'barras', 'linhas', 'donut' */
         this.tipo = 'pizza';
+        
+        /** 
+         * @type {string} Arranjo do gráfico
+         * 'horizontal' = Padrão (barras verticais/colunas, legenda embaixo)
+         * 'vertical' = Alternativo (barras horizontais, legenda ao lado)
+         */
+        this.arranjo = 'horizontal';
         
         /** @type {number} Largura do gráfico em pixels */
         this.largura = 400;
@@ -1606,14 +1623,32 @@ export class GridChart {
                 return {
                     type: 'pie',
                     data: this._formatarDados(),
-                    options: configBase
+                    options: {
+                        ...configBase,
+                        plugins: {
+                            ...configBase.plugins,
+                            legend: {
+                                display: true,
+                                position: this.arranjo === 'vertical' ? 'right' : 'bottom'
+                            }
+                        }
+                    }
                 };
                 
             case 'donut':
                 return {
                     type: 'doughnut',
                     data: this._formatarDados(),
-                    options: configBase
+                    options: {
+                        ...configBase,
+                        plugins: {
+                            ...configBase.plugins,
+                            legend: {
+                                display: true,
+                                position: this.arranjo === 'vertical' ? 'right' : 'bottom'
+                            }
+                        }
+                    }
                 };
                 
             case 'barras':
@@ -1622,8 +1657,9 @@ export class GridChart {
                     data: this._formatarDados(),
                     options: {
                         ...configBase,
+                        indexAxis: this.arranjo === 'vertical' ? 'y' : 'x',
                         scales: {
-                            y: {
+                            [this.arranjo === 'vertical' ? 'x' : 'y']: {
                                 beginAtZero: true
                             }
                         }

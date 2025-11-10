@@ -779,6 +779,115 @@ export default class api_fe {
         }
     }
 
+    /**
+     * 📊 OBTER TABELA PIVOT GENÉRICA
+     * 
+     * Função genérica para calcular tabelas pivot dinâmicas.
+     * Recebe configuração completa e retorna dados estruturados para relatórios.
+     * 
+     * @param {Object} configPivotTable - Configuração da tabela pivot
+     * @param {string} configPivotTable.view_name - Nome da view/tabela fonte
+     * @param {string} configPivotTable.campo_Agrupamento - Campo para agrupamento nas linhas
+     * @param {string} configPivotTable.campo_Pivot - Campo cujos valores se tornam colunas
+     * @param {string} configPivotTable.campo_valor - Campo numérico para agregação (SUM)
+     * @param {number} [configPivotTable.numColunasPivot=12] - Número máximo de colunas pivot
+     * @param {string} [configPivotTable.database_path] - Caminho do banco (usa this.const_database_path se omitido)
+     * @param {string} [configPivotTable.database_name] - Nome do banco (usa this.const_database_name se omitido)
+     * 
+     * @returns {Promise<Object>} Resultado com estrutura:
+     *   - success: boolean - Indica sucesso da operação
+     *   - labels: Array<string> - Nomes dos grupos + "TOTAL GERAL"
+     *   - colunas: Array<string> - Nomes das colunas pivot
+     *   - dados: Array<Array<number>> - Matriz de valores
+     *   - erro: string - Mensagem de erro (se success === false)
+     * 
+     * @example
+     * // Tabela pivot de despesas por subgrupo × mês
+     * const configPivotTable = {
+     *     view_name: "vw_despesas_mensal",
+     *     campo_Agrupamento: "descricao_subgrupo",
+     *     campo_Pivot: "mes_ano",
+     *     campo_valor: "valor",
+     *     numColunasPivot: 12
+     * };
+     * const resultado = await api.obterTabelaPivot(configPivotTable);
+     * 
+     * @example
+     * // Tabela pivot de vendas por produto × departamento
+     * const configPivotTable = {
+     *     view_name: "vw_vendas",
+     *     campo_Agrupamento: "produto",
+     *     campo_Pivot: "departamento",
+     *     campo_valor: "total_vendas"
+     * };
+     * const resultado = await api.obterTabelaPivot(configPivotTable);
+     */
+    async obterTabelaPivot(configPivotTable) {
+        try {
+            flow_marker('📊 Iniciando obterTabelaPivot');
+            flow_marker('Configuração recebida:', configPivotTable);
+
+            // Validar parâmetros obrigatórios
+            if (!configPivotTable.view_name) {
+                throw new Error('Parâmetro view_name é obrigatório');
+            }
+            if (!configPivotTable.campo_Agrupamento) {
+                throw new Error('Parâmetro campo_Agrupamento é obrigatório');
+            }
+            if (!configPivotTable.campo_Pivot) {
+                throw new Error('Parâmetro campo_Pivot é obrigatório');
+            }
+            if (!configPivotTable.campo_valor) {
+                throw new Error('Parâmetro campo_valor é obrigatório');
+            }
+
+            // Preparar payload completo com defaults
+            const payload = {
+                view_name: configPivotTable.view_name,
+                campo_Agrupamento: configPivotTable.campo_Agrupamento,
+                campo_Pivot: configPivotTable.campo_Pivot,
+                campo_valor: configPivotTable.campo_valor,
+                numColunasPivot: configPivotTable.numColunasPivot || 12,
+                database_path: configPivotTable.database_path || this.const_database_path,
+                database_name: configPivotTable.database_name || this.const_database_name
+            };
+
+            flow_marker('Payload preparado:', payload);
+
+            // Configuração da requisição
+            const configuracao = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            };
+
+            flow_marker('Enviando requisição para /despesas_12m');
+            
+            const response = await fetch(`${this.const_backend_url}/despesas_12m`, configuracao);
+            const dados = await response.json();
+
+            flow_marker('Resposta recebida do backend:', dados);
+
+            // Retornar resultado
+            if (dados.success) {
+                flow_marker(`✅ Tabela pivot obtida: ${dados.labels.length - 1} grupos × ${dados.colunas.length} colunas`);
+                return dados;
+            } else {
+                flow_marker(`❌ Erro ao obter tabela pivot: ${dados.erro}`);
+                return dados;
+            }
+
+        } catch (error) {
+            error_catcher('Erro no obterTabelaPivot', error);
+            return {
+                success: false,
+                erro: `Erro de conexão: ${error.message}`
+            };
+        }
+    }
+
 } // FIM DA CLASSE api_fe
 
 // Log de inicialização do módulo
