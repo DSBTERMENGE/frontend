@@ -277,6 +277,40 @@ export default class api_fe {
     }
     
     // ===============================================================
+    // 🔐 AUTENTICAÇÃO
+    // ===============================================================
+    
+    /**
+     * Autentica usuário no sistema
+     * 
+     * @param {string} username - Nome de usuário
+     * @param {string} password - Senha do usuário
+     * @returns {Promise<Object>} {success: bool, message: string}
+     */
+    async login(username, password) {
+        try {
+            const payload = {
+                username: username,
+                password: password,
+                database_path: this.const_database_path,
+                database_name: this.const_database_name
+            };
+            
+            const response = await fetch(`${this.const_backend_url}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            return await response.json();
+            
+        } catch (error) {
+            console.error('Erro no login:', error);
+            return { success: false, message: 'Erro ao conectar com servidor' };
+        }
+    }
+    
+    // ===============================================================
     // 📋 MÉTODO ATIVO - REQUISIÇÕES
     // ===============================================================
     

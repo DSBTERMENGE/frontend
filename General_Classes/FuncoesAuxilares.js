@@ -465,7 +465,8 @@ export {
     popularSelectPorConfiguracao,
     detectarTipoFormulario,
     garbageCollector,
-    form_listener
+    form_listener,
+    encerrarAplicativo
 };
 
 //************************************************************
@@ -681,5 +682,28 @@ async function form_listener(formObj, campo, valor, event) {
         
     } catch (error) {
         console.error('❌ Erro no form_listener:', error);
+    }
+}
+
+// ============= ENCERRAMENTO DE APLICATIVO =============
+
+/**
+ * 🚪 ENCERRAR APLICATIVO: Fecha a aplicação com confirmação do usuário
+ * 
+ * Solicita confirmação e encerra o aplicativo fechando a janela ou redirecionando
+ * para página em branco. Função genérica para uso em qualquer aplicação.
+ * 
+ * @param {string} [nomeApp="aplicativo"] - Nome da aplicação para exibir na mensagem
+ * 
+ * @example
+ * encerrarAplicativo('FinCtl');
+ * encerrarAplicativo('Estoque');
+ * 
+ * @returns {void}
+ * @since 1.0.0
+ */
+function encerrarAplicativo(nomeApp = "aplicativo") {
+    if (confirm(`Deseja realmente sair do ${nomeApp}?`)) {
+        window.close() || (window.location.href = 'about:blank');
     }
 }
