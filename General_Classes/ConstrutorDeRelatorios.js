@@ -217,11 +217,11 @@ let contadorContainers = 0;
             this.container.style.left = 'auto';
             this.container.style.top = 'auto';
         } else {
-            // Posicionamento específico [x, y] em pixels
+            // Posicionamento específico [x, y] em viewport units (vw/vh)
             const [x, y] = this.posicao;
             this.container.style.position = 'absolute';
-            this.container.style.left = `${x}px`;
-            this.container.style.top = `${y}px`;
+            this.container.style.left = `${x}vw`;
+            this.container.style.top = `${y}vh`;
         }
     }
 
@@ -1296,11 +1296,11 @@ export class GridAnalise {
             this.container.style.left = 'auto';
             this.container.style.top = 'auto';
         } else {
-            // Posicionamento específico [x, y]
+            // Posicionamento específico [x, y] em viewport units (vw/vh)
             const [x, y] = this.posicao;
             this.container.style.position = 'absolute';
-            this.container.style.left = `${x}px`;
-            this.container.style.top = `${y}px`;
+            this.container.style.left = `${x}vw`;
+            this.container.style.top = `${y}vh`;
         }
     }
     
@@ -1513,12 +1513,12 @@ export class GridChart {
             this.container.style.left = 'auto';
             this.container.style.top = 'auto';
         } else {
-            // Posicionamento específico [x, y] em pixels
+            // Posicionamento específico [x, y] em viewport units (vw/vh)
             const [x, y] = this.posicao;
             this.container.style.position = 'absolute';
-            this.container.style.left = `${x}px`;
-            this.container.style.top = `${y}px`;
-            console.log(`🔧 GridChart posicionado em: position: absolute, left: ${x}px, top: ${y}px`);
+            this.container.style.left = `${x}vw`;
+            this.container.style.top = `${y}vh`;
+            console.log(`🔧 GridChart posicionado em: position: absolute, left: ${x}vw, top: ${y}vh`);
         }
     }
     
