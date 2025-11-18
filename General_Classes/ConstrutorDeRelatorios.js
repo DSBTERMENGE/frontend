@@ -1876,8 +1876,8 @@ export class GridFiltros {
         // aplicar posição se definida
         if (this.posicao && this.posicao.length === 2) {
             this.container.style.position = 'absolute';
-            this.container.style.left = `${this.posicao[0]}px`;
-            this.container.style.top = `${this.posicao[1]}px`;
+            this.container.style.left = `${this.posicao[0]}vw`;
+            this.container.style.top = `${this.posicao[1]}vh`;
         }
 
         // Cabecalho
