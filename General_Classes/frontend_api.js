@@ -388,6 +388,24 @@ export default class api_fe {
                 throw new Error("Dados para update não fornecidos");
             }
             
+            // 🔍 FILTRO DE CAMPOS - Remove campos calculados de VIEWs
+            // Apenas campos listados em this.campos são permitidos para UPDATE
+            // Isso evita erros quando VIEW possui campos calculados (ex: ano, mes, lcto)
+            let dadosFiltrados = dados_para_update;
+            
+            if (this.campos && this.campos.length > 0 && !this.campos.includes('Todos')) {
+                dadosFiltrados = Object.fromEntries(
+                    Object.entries(dados_para_update)
+                        .filter(([key]) => this.campos.includes(key))
+                );
+                
+                flow_marker('🧹 Campos filtrados para UPDATE', {
+                    campos_originais: Object.keys(dados_para_update),
+                    campos_permitidos: this.campos,
+                    campos_filtrados: Object.keys(dadosFiltrados)
+                });
+            }
+            
             // Monta payload completo para o backend
             const url = `${this.const_backend_url}/update_data_db`;
             const payload = {
@@ -396,7 +414,7 @@ export default class api_fe {
                 campos_obrigatorios: this.campos_obrigatorios || [],
                 database_name: this.const_database_name || "",
                 database_path: this.const_database_path || "",
-                dados: dados_para_update,
+                dados: dadosFiltrados,
                 application_path: this.const_application_path,
                 filtros: this.filtros || ""
             };
@@ -445,6 +463,24 @@ export default class api_fe {
                 throw new Error("Dados para inserção não fornecidos");
             }
             
+            // 🔍 FILTRO DE CAMPOS - Remove campos calculados de VIEWs
+            // Apenas campos listados em this.campos são permitidos para INSERT
+            // Isso evita erros quando VIEW possui campos calculados (ex: ano, mes, lcto)
+            let dadosFiltrados = dados_novo_registro;
+            
+            if (this.campos && this.campos.length > 0 && !this.campos.includes('Todos')) {
+                dadosFiltrados = Object.fromEntries(
+                    Object.entries(dados_novo_registro)
+                        .filter(([key]) => this.campos.includes(key))
+                );
+                
+                flow_marker('🧹 Campos filtrados para INSERT', {
+                    campos_originais: Object.keys(dados_novo_registro),
+                    campos_permitidos: this.campos,
+                    campos_filtrados: Object.keys(dadosFiltrados)
+                });
+            }
+            
             // Monta payload completo para o backend
             const url = `${this.const_backend_url}/incluir_reg_novo_db`;
             const payload = {
@@ -453,7 +489,7 @@ export default class api_fe {
                 campos_obrigatorios: this.campos_obrigatorios || [],
                 database_name: this.const_database_name || "",
                 database_path: this.const_database_path || "",
-                dados: dados_novo_registro,
+                dados: dadosFiltrados,
                 application_path: this.const_application_path,
                 filtros: this.filtros || ""
             };
