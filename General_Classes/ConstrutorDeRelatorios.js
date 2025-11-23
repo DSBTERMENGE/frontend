@@ -13,6 +13,7 @@ import {
     obterLabelOperacao, 
     formatarResultado 
 } from './FuncoesAuxiliaresRelatorios.js';
+import { formatarValorMonetario } from './FuncoesAuxilares.js';
 
 // ===== FUNÇÕES UTILITÁRIAS PARA CONVERSÃO MONETÁRIA =====
 /**
@@ -185,8 +186,10 @@ let contadorContainers = 0;
      * @throws {Error} Se container pai não for encontrado no DOM
      */
     _conectarContainer() {
-        // Usa função global padronizada
-        this.container = criarDivFilhaRelatorio('divSubRel', 'container-sub-relatorio');
+        // ✅ REUTILIZA container existente ao invés de criar novo
+        if (!this.container) {
+            this.container = criarDivFilhaRelatorio('divSubRel', 'container-sub-relatorio');
+        }
         return this.container;
     }
 
@@ -403,17 +406,11 @@ let contadorContainers = 0;
         if (valor === null || valor === undefined) return '';
         
         switch (formato) {
-            case 'M': // Moeda COM símbolo (R$ 3.125,00)
-                return new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL'
-                }).format(Number(valor) || 0);
+            case 'M': // Moeda COM símbolo (R$ 3.125,50)
+                return formatarValorMonetario(valor, 'moeda');
                 
-            case 'V': // Valor monetário SEM símbolo (3.125,00)
-                return new Intl.NumberFormat('pt-BR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                }).format(Number(valor) || 0);
+            case 'V': // Valor monetário SEM símbolo (3.125,50)
+                return formatarValorMonetario(valor, 'valor');
                 
             case '%': // Percentual
                 return new Intl.NumberFormat('pt-BR', {
@@ -1234,6 +1231,9 @@ export class GridAnalise {
         /** @type {Array<string>} Alinhamento das colunas */
         this.alinhamento = ['E', 'D']; // Esquerda para descrição, Direita para valor
         
+        /** @type {Array<string>} Formato das colunas (T=Texto, V=Valor, M=Moeda) */
+        this.formato = ['T', 'T']; // Padrão: ambas texto
+        
         /** @type {string} Classe CSS para estilização específica */
         this.cssClass = 'grid-analise';
         
@@ -1335,10 +1335,15 @@ export class GridAnalise {
                         return '<tr class="separador"><td colspan="2"><hr></td></tr>';
                     }
                     
+                    // Formata valor conforme this.formato[1] (segunda coluna)
+                    const valorFormatado = this.formato && this.formato[1]
+                        ? this._formatarValor(linha.valor, this.formato[1])
+                        : linha.valor || '';
+                    
                     return `
                         <tr>
                             <td style="text-align: ${this._alinhamentoCSS(this.alinhamento[0])}">${linha.descricao || ''}</td>
-                            <td style="text-align: ${this._alinhamentoCSS(this.alinhamento[1])}">${linha.valor || ''}</td>
+                            <td style="text-align: ${this._alinhamentoCSS(this.alinhamento[1])}">${valorFormatado}</td>
                         </tr>
                     `;
                 }).join('')}
@@ -1367,6 +1372,26 @@ export class GridAnalise {
             case 'C': return 'center';
             case 'D': return 'right';
             default: return 'left';
+        }
+    }
+    
+    /**
+     * Formata valor conforme tipo especificado
+     * @param {*} valor - Valor a ser formatado
+     * @param {string} formato - Tipo de formato (T/V/M/%)
+     * @returns {string} Valor formatado
+     */
+    _formatarValor(valor, formato) {
+        if (valor === null || valor === undefined || valor === '') return '';
+        
+        switch (formato) {
+            case 'M': // Moeda COM símbolo (R$ 3.125,50)
+                return formatarValorMonetario(valor, 'moeda');
+            case 'V': // Valor monetário SEM símbolo (3.125,50)
+                return formatarValorMonetario(valor, 'valor');
+            case 'T': // Texto
+            default:
+                return String(valor);
         }
     }
     

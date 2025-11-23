@@ -1159,8 +1159,20 @@ export class FormComum extends FormularioBase {
         // ✅ VALIDAÇÃO SIMPLIFICADA: Apenas bloqueia caracteres inválidos durante digitação
         // Validação completa será feita ao salvar o registro
         input.addEventListener('input', (e) => {
-            // Remove tudo exceto números e ponto (formato SQL: nnnnnn.nn)
-            e.target.value = e.target.value.replace(/[^0-9.]/g, '');
+            // Remove tudo exceto números, vírgula e ponto
+            e.target.value = e.target.value.replace(/[^0-9.,]/g, '');
+        });
+        
+        // ✅ FORMATAÇÃO AUTOMÁTICA: Ao sair do campo, formata para padrão brasileiro
+        input.addEventListener('blur', (e) => {
+            const valor = e.target.value.trim();
+            if (valor) {
+                // Importa função de formatação
+                import('./FuncoesAuxilares.js').then(module => {
+                    const formato = input.getAttribute('data-format') || 'valor';
+                    e.target.value = module.formatarValorMonetario(valor, formato);
+                });
+            }
         });
     }
 

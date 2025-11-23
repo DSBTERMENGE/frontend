@@ -717,17 +717,8 @@ export default class api_fe {
             }
             
             // Usa configurações da instância se parâmetros não fornecidos
-            const db_path = database_path || this.const_database_path;
+            const db_path = database_path !== null ? database_path : this.const_database_path;
             const db_name = database_name || this.const_database_name;
-            
-            // Validação das configurações de banco
-            if (!db_path) {
-                throw new Error("database_path não configurado. Configure this.const_database_path primeiro.");
-            }
-            
-            if (!db_name) {
-                throw new Error("database_name não configurado. Configure this.const_database_name primeiro.");
-            }
             
             // Monta payload para o backend
             const url = `${this.const_backend_url}/executar_sql`;

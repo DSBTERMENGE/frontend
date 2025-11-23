@@ -21,7 +21,7 @@ FLUXO DE EXECUÇÃO:
 // Importando funções de debugging (primeiro para seguir critério)
 import { flow_marker, error_catcher } from './Debugger.js';
 // Importando funções de gerenciamento de eventos e controles
-import { removerListener, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao, garbageCollector } from './FuncoesAuxilares.js';
+import { removerListener, habilitarControlesDeFrm, desabilitarControlesDeFrm, habilitarModoEdicao, garbageCollector, formatarValorMonetario } from './FuncoesAuxilares.js';
 // Importando função de conversão universal de valores
 import { Val } from './FuncoesAuxiliaresRelatorios.js';
 
@@ -1121,14 +1121,20 @@ function _popularFormularioAutomatico(dados) {
             } else {
                 let valorFormatado = dados[campo] || '';
                 
-                // Verifica se campo tem formatação monetária
-                const formatCampo = elemento.getAttribute('data-format');
-                if (formatCampo === 'moeda' && valorFormatado) {
-                    // Converte número para formato brasileiro usando Val() (aceita qualquer formato)
-                    valorFormatado = Val(valorFormatado).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
+                // ✅ TRATA DATAS vindas do PostgreSQL (objeto Date)
+                if (valorFormatado instanceof Date) {
+                    // Converte para dd/mm/yyyy
+                    const dia = String(valorFormatado.getDate()).padStart(2, '0');
+                    const mes = String(valorFormatado.getMonth() + 1).padStart(2, '0');
+                    const ano = valorFormatado.getFullYear();
+                    valorFormatado = `${dia}/${mes}/${ano}`;
+                }
+                // ✅ TRATA VALORES MONETÁRIOS
+                else {
+                    const formatCampo = elemento.getAttribute('data-format');
+                    if ((formatCampo === 'moeda' || formatCampo === 'valor') && valorFormatado) {
+                        valorFormatado = formatarValorMonetario(valorFormatado, formatCampo);
+                    }
                 }
                 
                 elemento.value = valorFormatado;

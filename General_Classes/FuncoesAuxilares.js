@@ -1,4 +1,5 @@
 import { _popularFormularioAutomaticoPorIndice } from './OperacoesCRUD.js';
+import { Val } from './FuncoesAuxiliaresRelatorios.js';
 
 //=================FUNÇÕES AUXILIARES RELATIVAS A EVENTOS=========================//
 
@@ -707,3 +708,40 @@ function encerrarAplicativo(nomeApp = "aplicativo") {
         window.close() || (window.location.href = 'about:blank');
     }
 }
+
+//=================FUNÇÕES DE FORMATAÇÃO MONETÁRIA=========================//
+
+/**
+ * 💰 FORMATAR VALOR MONETÁRIO: Formata número para exibição monetária brasileira
+ * 
+ * Converte qualquer valor (número, string formatada, etc) para formato monetário
+ * brasileiro com opção de incluir ou não o símbolo R$.
+ * Usa Val() internamente para normalizar o valor antes de formatar.
+ * 
+ * @param {any} valor - Valor a formatar (número, string "1.235,50", "R$ 1.235,50", etc)
+ * @param {string} [tipo='valor'] - Tipo de formatação:
+ *                                  'moeda' = com R$ (ex: "R$ 1.235,50")
+ *                                  'valor' = sem R$ (ex: "1.235,50")
+ * 
+ * @example
+ * formatarValorMonetario(1235.5)                    // "1.235,50"
+ * formatarValorMonetario(1235.5, 'moeda')           // "R$ 1.235,50"
+ * formatarValorMonetario("1235,50")                 // "1.235,50"
+ * formatarValorMonetario("R$ 1.235,50", 'valor')    // "1.235,50"
+ * formatarValorMonetario(0)                         // "0,00"
+ * formatarValorMonetario(null)                      // "0,00"
+ * 
+ * @returns {string} Valor formatado em padrão brasileiro
+ * @since 2.0.0
+ */
+export function formatarValorMonetario(valor, tipo = 'valor') {
+    // ✅ PADRÃO POSTGRESQL: Backend sempre envia float
+    // Não precisa Val() - apenas formata o número que vem do backend
+    const numero = Number(valor) || 0; // Garante que é número
+    const formatado = numero.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    return tipo === 'moeda' ? `R$ ${formatado}` : formatado;
+}
+
