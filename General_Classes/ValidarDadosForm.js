@@ -137,13 +137,13 @@ export default class ValidarDadosForm {
             return false;
         }
         
-        // TODO: Validação 2: Tipos de dados (quando implementarmos)
-        // const resultadoTipos = this._validarTipos();
-        // if (resultadoTipos.sucesso === false) {
-        //     this.mensagemDeErro = resultadoTipos.mensagem;
-        //     this._emitirMsgDeErro();
-        //     return false;
-        // }
+        // Validação 2: Formatos (valores monetários e datas)
+        const resultadoFormatos = this._validarFormatosCampos();
+        if (resultadoFormatos.sucesso === false) {
+            this.mensagemDeErro = resultadoFormatos.mensagem;
+            this._emitirMsgDeErro();
+            return false;
+        }
         
         // TODO: Validação 3: Tamanhos (quando implementarmos)
         // const resultadoTamanhos = this._validarTamanhos();
@@ -256,6 +256,112 @@ export default class ValidarDadosForm {
         
         console.log('❌ ValidarDadosForm: Campos obrigatórios vazios:', camposVazios);
         return { sucesso: false, mensagem: mensagem };
+    }
+    
+    /**
+     * Método privado: Valida formatos de valores monetários e datas
+     * @returns {Object} {sucesso: boolean, mensagem: string}
+     */
+    _validarFormatosCampos() {
+        const erros = [];
+        
+        // ========== VALIDAÇÃO DE CAMPOS MONETÁRIOS ==========
+        const camposMonetarios = document.querySelectorAll('[data-format="valor"], [data-format="moeda"]');
+        
+        camposMonetarios.forEach(campo => {
+            // Pula campos vazios (validação de obrigatório já foi feita)
+            if (!campo.value || campo.value.trim() === '') return;
+            
+            const valor = campo.value.trim();
+            const nomeCampo = this._obterLabelDoCampo(campo.id) || campo.id;
+            
+            // Valida: aceita apenas números, ponto e vírgula
+            if (!/^[\d.,]+$/.test(valor)) {
+                erros.push(`Campo "${nomeCampo}": contém caracteres inválidos. Use apenas números, ponto (.) e vírgula (,)`);
+                return;
+            }
+            
+            // Valida formato brasileiro: xxx.xxx,xx ou xxxxxx,xx ou xxxxxx
+            // Permite: 1234 | 1234,56 | 1.234,56 | 1.234.567,89
+            if (!/^\d{1,}(\.\d{3})*(\,\d{2})?$/.test(valor)) {
+                erros.push(`Campo "${nomeCampo}": formato inválido. Use: 1234 ou 1234,56 ou 1.234,56`);
+            }
+        });
+        
+        // ========== VALIDAÇÃO DE CAMPOS DE DATA ==========
+        const camposDatas = document.querySelectorAll('[data-format="data"]');
+        
+        camposDatas.forEach(campo => {
+            // Pula campos vazios (validação de obrigatório já foi feita)
+            if (!campo.value || campo.value.trim() === '') return;
+            
+            const nomeCampo = this._obterLabelDoCampo(campo.id) || campo.id;
+            const resultadoData = this._validarFormatoData(campo.value.trim());
+            
+            if (!resultadoData.valido) {
+                erros.push(`Campo "${nomeCampo}": ${resultadoData.erro}`);
+            }
+        });
+        
+        // Retorna resultado consolidado
+        if (erros.length > 0) {
+            console.log('❌ ValidarDadosForm: Erros de formato detectados:', erros);
+            return {
+                sucesso: false,
+                mensagem: erros.join('\n')
+            };
+        }
+        
+        console.log('✅ ValidarDadosForm: Formatos de campos validados com sucesso');
+        return { sucesso: true, mensagem: '' };
+    }
+    
+    /**
+     * Método privado auxiliar: Valida formato de data
+     * @param {string} dataString - Data a validar (dd/mm/yyyy ou yyyy-mm-dd)
+     * @returns {Object} {valido: boolean, erro: string}
+     */
+    _validarFormatoData(dataString) {
+        // Regex para formatos aceitos
+        const regexBR = /^(\d{2})\/(\d{2})\/(\d{4})$/;  // dd/mm/yyyy
+        const regexISO = /^(\d{4})-(\d{2})-(\d{2})$/;     // yyyy-mm-dd
+        
+        let dia, mes, ano;
+        
+        // Identifica formato e extrai componentes
+        if (regexBR.test(dataString)) {
+            [, dia, mes, ano] = dataString.match(regexBR);
+        } else if (regexISO.test(dataString)) {
+            [, ano, mes, dia] = dataString.match(regexISO);
+        } else {
+            return { valido: false, erro: 'formato inválido (use dd/mm/yyyy ou yyyy-mm-dd)' };
+        }
+        
+        // Converte para números
+        ano = parseInt(ano);
+        mes = parseInt(mes);
+        dia = parseInt(dia);
+        
+        // Valida ano razoável (1900 - 2100)
+        if (ano < 1900 || ano > 2100) {
+            return { valido: false, erro: `ano inválido: ${ano} (aceito: 1900-2100)` };
+        }
+        
+        // Valida mês (1-12)
+        if (mes < 1 || mes > 12) {
+            return { valido: false, erro: `mês inválido: ${mes}` };
+        }
+        
+        // Valida se a data é válida (verifica dias do mês, ano bissexto, etc)
+        const dataObj = new Date(ano, mes - 1, dia);
+        
+        if (dataObj.getFullYear() !== ano || 
+            dataObj.getMonth() !== mes - 1 || 
+            dataObj.getDate() !== dia) {
+            return { valido: false, erro: `data inexistente: ${dia}/${mes}/${ano}` };
+        }
+        
+        return { valido: true, erro: '' };
     }
     
     // ********* MÉTODOS PARA VALIDAÇÃO DE NAVEGAÇÃO *********
