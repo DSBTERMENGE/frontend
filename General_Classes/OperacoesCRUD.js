@@ -344,23 +344,53 @@ async function processarDeletar() {
 
         flow_marker('🗑️ Dados do registro para exclusão', registroParaDeletar);
 
-        // Chama API para deletar no backend (quando implementada)
-        // const resultadoAPI = await window.api_info.deletar_registro(registroParaDeletar);
+        // 🔹 PRIMEIRA TENTATIVA: Chama delete SEM forçar (backend verifica dependências)
+        let resultadoAPI = await window.api_info.deletar_registro(registroParaDeletar, false);
         
-        // SIMULAÇÃO: Por enquanto simula sucesso até implementar endpoint DELETE
-        const resultadoAPI = { sucesso: true, mensagem: "Registro deletado com sucesso" };
+        // 🔹 TRATAMENTO DE DEPENDÊNCIAS: Backend encontrou registros dependentes
+        if (resultadoAPI.erro === 'dependencias_encontradas') {
+            const detalhesMsg = resultadoAPI.detalhes
+                .map(d => `  • ${d.tabela}: ${d.quantidade} registro(s)`)
+                .join('\n');
+            
+            const msgConfirmacao = 
+                `⚠️ ATENÇÃO: Este registro possui ${resultadoAPI.quantidade} dependência(s):\n\n` +
+                `${detalhesMsg}\n\n` +
+                `Deletar mesmo assim?\n` +
+                `(Esta ação pode ser IRREVERSÍVEL dependendo da configuração do banco)`;
+            
+            const confirmaComDependencias = confirm(msgConfirmacao);
+            
+            if (!confirmaComDependencias) {
+                flow_marker('❌ Usuário cancelou delete após aviso de dependências');
+                return {
+                    sucesso: false,
+                    mensagem: 'Operação cancelada pelo usuário'
+                };
+            }
+            
+            // 🔹 SEGUNDA TENTATIVA: Usuário confirmou, força delete
+            flow_marker('🔄 Usuário confirmou delete com dependências - forçando exclusão');
+            resultadoAPI = await window.api_info.deletar_registro(registroParaDeletar, true);
+        }
 
+        // 🔹 PROCESSAMENTO DO RESULTADO FINAL
         if (resultadoAPI.sucesso) {
             flow_marker('✅ Registro deletado com sucesso');
 
-            // 🔄 SINCRONIZAÇÃO DELETE: Remove registro do array local
-            dadosDisponiveis.splice(reg_num, 1);
+            // 🔄 SINCRONIZAÇÃO DELETE: Atualiza array local com dados do backend
+            if (resultadoAPI.dados_atualizados) {
+                dadosDisponiveis = resultadoAPI.dados_atualizados;
+            } else {
+                // Fallback: remove manualmente se backend não retornar array atualizado
+                dadosDisponiveis.splice(reg_num, 1);
+            }
 
             // 📍 AJUSTE DE POSIÇÃO: Move reg_num uma unidade para trás
             reg_num = reg_num - 1;
 
             if (reg_num < 0 || dadosDisponiveis.length === 0) {
-                // 🎯 CENÁRIO 2: DELETE último registro → Auto modo inclusão
+                // 🎯 CENÁRIO 1: DELETE último registro → Auto modo inclusão
                 reg_num = -1;
                 
                 // Ativa modo inclusão automático
@@ -372,7 +402,7 @@ async function processarDeletar() {
                     total_registros: dadosDisponiveis.length
                 });
             } else {
-                // Popula com registro anterior
+                // CENÁRIO 2: Popula com registro anterior
                 _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
                 flow_marker('🔄 DELETE - navegou para registro anterior', {
                     reg_num: reg_num,
@@ -385,7 +415,7 @@ async function processarDeletar() {
                 mensagem: resultadoAPI.mensagem || "Registro deletado com sucesso"
             };
         } else {
-            throw new Error(resultadoAPI.mensagem || "Erro na exclusão");
+            throw new Error(resultadoAPI.mensagem || resultadoAPI.erro || "Erro na exclusão");
         }
 
     } catch (error) {
@@ -881,10 +911,136 @@ function valida_salvar() {
         alert(`Os seguintes campos obrigatórios ainda estão vazios: ${camposFaltando.join(', ')}`);
         return false;
     }
+
+    // Valida formatos de valores monetários e datas
+    if (!_validarFormatosCampos()) {
+        return false;
+    }
     
     return true;
 }
 
+
+/**
+ * Valida formatos de campos monetários e datas
+ * @returns {boolean} true se válido, false se inválido
+ */
+function _validarFormatosCampos() {
+    // ========== VALIDAÇÃO DE CAMPOS MONETÁRIOS ==========
+    const camposMonetarios = document.querySelectorAll('[data-format="valor"], [data-format="moeda"]');
+    
+    for (const campo of camposMonetarios) {
+        // Pula campos vazios (validação de obrigatório já foi feita)
+        if (!campo.value || campo.value.trim() === '') continue;
+        
+        const valor = campo.value.trim();
+        const nomeCampo = _obterLabelDoCampo(campo.id) || campo.id;
+        
+        // Valida: aceita apenas números, ponto e vírgula
+        if (!/^[\d.,]+$/.test(valor)) {
+            alert(`⚠️ ERRO DE VALIDAÇÃO:\n\nCampo "${nomeCampo}": contém caracteres inválidos.\nUse apenas números, ponto (.) e vírgula (,)`);
+            console.log('❌ Formato monetário inválido:', valor);
+            return false;
+        }
+        
+        // Valida formato brasileiro: xxx.xxx,xx ou xxxxxx,xx ou xxxxxx
+        // Permite: 1234 | 1234,56 | 1.234,56 | 1.234.567,89
+        if (!/^\d{1,}(\.\d{3})*(\,\d{2})?$/.test(valor)) {
+            alert(`⚠️ ERRO DE VALIDAÇÃO:\n\nCampo "${nomeCampo}": formato inválido.\nUse: 1234 ou 1234,56 ou 1.234,56`);
+            console.log('❌ Formato monetário inválido:', valor);
+            return false;
+        }
+    }
+    
+    // ========== VALIDAÇÃO DE CAMPOS DE DATA ==========
+    const camposDatas = document.querySelectorAll('[data-format="data"]');
+    
+    for (const campo of camposDatas) {
+        // Pula campos vazios (validação de obrigatório já foi feita)
+        if (!campo.value || campo.value.trim() === '') continue;
+        
+        const nomeCampo = _obterLabelDoCampo(campo.id) || campo.id;
+        const resultadoData = _validarFormatoData(campo.value.trim());
+        
+        if (!resultadoData.valido) {
+            alert(`⚠️ ERRO DE VALIDAÇÃO:\n\nCampo "${nomeCampo}": ${resultadoData.erro}`);
+            console.log('❌ Formato de data inválido');
+            return false;
+        }
+    }
+    
+    console.log('✅ Formatos de campos validados com sucesso');
+    return true;
+}
+
+/**
+ * Valida formato de data
+ * @param {string} dataString - Data a validar (dd/mm/yyyy ou yyyy-mm-dd)
+ * @returns {Object} {valido: boolean, erro: string}
+ */
+function _validarFormatoData(dataString) {
+    // Regex para formatos aceitos
+    const regexBR = /^(\d{2})\/(\d{2})\/(\d{4})$/;  // dd/mm/yyyy
+    const regexISO = /^(\d{4})-(\d{2})-(\d{2})$/;     // yyyy-mm-dd
+    
+    let dia, mes, ano;
+    
+    // Identifica formato e extrai componentes
+    if (regexBR.test(dataString)) {
+        [, dia, mes, ano] = dataString.match(regexBR);
+    } else if (regexISO.test(dataString)) {
+        [, ano, mes, dia] = dataString.match(regexISO);
+    } else {
+        return { valido: false, erro: 'formato inválido (use dd/mm/yyyy ou yyyy-mm-dd)' };
+    }
+    
+    // Converte para números
+    ano = parseInt(ano);
+    mes = parseInt(mes);
+    dia = parseInt(dia);
+    
+    // Valida ano razoável (1900 - 2100)
+    if (ano < 1900 || ano > 2100) {
+        return { valido: false, erro: `ano inválido: ${ano} (aceito: 1900-2100)` };
+    }
+    
+    // Valida mês (1-12)
+    if (mes < 1 || mes > 12) {
+        return { valido: false, erro: `mês inválido: ${mes}` };
+    }
+    
+    // Valida se a data é válida (verifica dias do mês, ano bissexto, etc)
+    const dataObj = new Date(ano, mes - 1, dia);
+    
+    if (dataObj.getFullYear() !== ano || 
+        dataObj.getMonth() !== mes - 1 || 
+        dataObj.getDate() !== dia) {
+        return { valido: false, erro: `data inexistente: ${dia}/${mes}/${ano}` };
+    }
+    
+    return { valido: true, erro: '' };
+}
+
+/**
+ * Obtém label descritivo de um campo
+ * @param {string} idCampo - ID do campo
+ * @returns {string} Label do campo
+ */
+function _obterLabelDoCampo(idCampo) {
+    const campo = document.getElementById(idCampo);
+    if (campo) {
+        // Tenta encontrar label associado
+        const label = document.querySelector(`label[for="${idCampo}"]`);
+        if (label) return label.textContent.trim();
+        
+        // Tenta pelo placeholder
+        if (campo.placeholder) return campo.placeholder;
+        
+        // Fallback para o nome do campo
+        return idCampo.charAt(0).toUpperCase() + idCampo.slice(1);
+    }
+    return idCampo;
+}
 
 /* ============================================================
                    FUNÇÕES AUXILIARES

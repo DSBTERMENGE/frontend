@@ -780,6 +780,88 @@ export default class api_fe {
      */
 
     /**
+     * 🗑️ DELETAR REGISTRO
+     * 
+     * Exclui registro do banco de dados com verificação automática de dependências.
+     * Backend verifica dependências internamente e retorna erro se encontradas.
+     * 
+     * @param {Object} pk_para_excluir - Dados da chave primária do registro a deletar
+     * @param {boolean} [forcar=false] - Se true, força exclusão ignorando dependências
+     * @returns {Promise<Object>} Resultado da operação com dados_atualizados
+     * 
+     * @example
+     * // Delete normal (com verificação de dependências)
+     * const resultado = await api.deletar_registro({ id_grupo: 5 });
+     * if (resultado.erro === 'dependencias_encontradas') {
+     *     // Tratar aviso de dependências
+     * }
+     * 
+     * @example
+     * // Delete forçado (ignora dependências)
+     * const resultado = await api.deletar_registro({ id_grupo: 5 }, true);
+     */
+    async deletar_registro(pk_para_excluir, forcar = false) {
+        try {
+            flow_marker('🗑️ deletar_registro() iniciado', { pk_para_excluir, forcar });
+            
+            // Validação básica
+            if (!this.const_tabela_alvo) {
+                throw new Error("Propriedade tabela_alvo não configurada");
+            }
+            
+            if (!pk_para_excluir || Object.keys(pk_para_excluir).length === 0) {
+                throw new Error("Chave primária para exclusão não fornecida");
+            }
+            
+            // Monta payload
+            const url = `${this.const_backend_url}/delete_reg`;
+            const payload = {
+                tabela_alvo: this.const_tabela_alvo,
+                pk_para_excluir: pk_para_excluir,
+                database_path: this.const_database_path,
+                database_name: this.const_database_name,
+                forcar: forcar
+            };
+            
+            flow_marker(`🌐 Enviando DELETE para: ${url}`, payload);
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.const_headers
+                },
+                body: JSON.stringify(payload),
+                timeout: this.const_timeout
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const resultado = await response.json();
+            
+            // Log baseado no resultado
+            if (resultado.erro === 'dependencias_encontradas') {
+                flow_marker(`⚠️ Dependências encontradas: ${resultado.quantidade} registro(s)`, resultado.detalhes);
+            } else if (resultado.sucesso) {
+                flow_marker(`✅ Registro deletado com sucesso`);
+            } else {
+                flow_marker(`❌ Erro na exclusão: ${resultado.mensagem}`);
+            }
+            
+            return resultado;
+            
+        } catch (error) {
+            error_catcher('❌ Erro no deletar_registro():', error);
+            return {
+                sucesso: false,
+                erro: error.message
+            };
+        }
+    }
+
+    /**
      * Processa extratos PDF e extrai despesas automaticamente
      * 
      * Executa o processo completo de:
