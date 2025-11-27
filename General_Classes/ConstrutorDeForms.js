@@ -168,8 +168,8 @@ export class FormComum extends FormularioBase {
         
         /**
          * @type {Array<string|null>}
-         * @description Formatos dos campos: 'texto', 'moeda', 'pct', 'data' ou null
-         * @example form.format = ['texto', 'texto', null]
+         * @description Formatos dos campos: 'texto', 'moeda', 'valor', 'pct', 'data', 'email', 'tel', 'url' ou null
+         * @example form.format = ['texto', 'data', 'email', 'tel']
          */
         this.format = format;
         
@@ -449,7 +449,18 @@ export class FormComum extends FormularioBase {
             switch (tipo) {
                 case 'input':
                     campo = document.createElement('input');
-                    campo.type = 'text';
+                    // ✅ Define type baseado em format
+                    if (format === 'data') {
+                        campo.type = 'date';
+                    } else if (format === 'email') {
+                        campo.type = 'email';
+                    } else if (format === 'tel') {
+                        campo.type = 'tel';
+                    } else if (format === 'url') {
+                        campo.type = 'url';
+                    } else {
+                        campo.type = 'text';
+                    }
                     if (this.largCampos && this.largCampos[i] !== undefined) campo.style.width = this.largCampos[i] + 'rem';
                     break;
                 case 'combo':
@@ -1127,7 +1138,10 @@ export class FormComum extends FormularioBase {
                 this._validarCampoMonetario(elemento);
                 break;
             case 'data':
-                this._validarCampoData(elemento);
+                // ⚠️ NÃO aplicar máscara se campo é type="date" (navegador gerencia)
+                if (elemento.type !== 'date') {
+                    this._validarCampoData(elemento);
+                }
                 break;
             // FUTURO: Adicionar novos formatos aqui
             // case 'cpf':
@@ -1173,32 +1187,6 @@ export class FormComum extends FormularioBase {
                     e.target.value = module.formatarValorMonetario(valor, formato);
                 });
             }
-        });
-    }
-
-    /**
-     * 📅 VALIDAÇÃO DE DATA: Formato dd/mm/aaaa obrigatório
-     * 
-     * REGRAS RÍGIDAS:
-     * ✅ Apenas números e barras permitidos
-     * ✅ Obrigatório: dd/mm/aaaa (2 dígitos dia, 2 mês, 4 ano)
-     * ✅ Valida existência real da data (não aceita 31/02/2025)
-     * ✅ Exemplos válidos: 15/10/2025 | 01/01/2025 | 29/02/2024
-     * ❌ Exemplos inválidos: 15/10/25 | 1/1/2025 | 31/02/2025
-     * 
-     * COMPORTAMENTO:
-     * • oninput → Bloqueia digitação de caracteres inválidos
-     * • onblur  → Valida formato e existência da data
-     * 
-     * @param {HTMLInputElement} input - Campo a ser validado
-     * @private
-     */
-    _validarCampoData(input) {
-        // ✅ VALIDAÇÃO SIMPLIFICADA: Apenas bloqueia caracteres inválidos durante digitação
-        // Validação completa será feita ao salvar o registro
-        input.addEventListener('input', (e) => {
-            // Remove tudo exceto números e barra
-            e.target.value = e.target.value.replace(/[^0-9/]/g, '');
         });
     }
 
