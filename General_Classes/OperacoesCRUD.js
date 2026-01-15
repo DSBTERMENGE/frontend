@@ -1831,7 +1831,9 @@ export {
     // Função para popular primeira select
     popularSelect,
     // Função interna para usar em FuncoesAuxilares (substituída)
-    _popularFormularioAutomaticoPorIndice
+    _popularFormularioAutomaticoPorIndice,
+    // Função para sincronizar select de pesquisa com registro atual
+    _repopularSelectDePesquisa
 };
 
 
