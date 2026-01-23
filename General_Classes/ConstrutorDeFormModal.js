@@ -96,10 +96,13 @@ export class FormModal extends FormComum {
         // Configura botões no footer local
         this._configurarBotoesLocais();
         
+        // 🛡️ Ativa monitoramento de campos obrigatórios
+        this._monitorarCamposObrigatorios();
+        
         // Inicialmente oculto
         this.ocultar();
         
-        console.log('✅ FormModal configurado: backdrop + drag + botões locais');
+        console.log('✅ FormModal configurado: backdrop + drag + botões locais + validação');
     }
 
     /**
@@ -339,6 +342,14 @@ export class FormModal extends FormComum {
     _onSubmit() {
         console.log('✅ Submetendo dados do modal...');
         
+        // 🛡️ VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS
+        const erros = this._validarCamposObrigatorios();
+        
+        if (erros.length > 0) {
+            this._exibirErros(erros);
+            return; // ← BLOQUEIA submit se houver erros
+        }
+        
         if (this.validarEDados()) {
             // Dispara evento customizado específico do modal
             this._dispararEventoCustomizadoModal('submit', {
@@ -371,6 +382,149 @@ export class FormModal extends FormComum {
             this.container.dispatchEvent(eventoCustom);
             
             console.log(`🎯 Evento 'form-modal-acao.${acao}' disparado`);
+        }
+    }
+
+    /**
+     * 🛡️ VALIDAÇÃO: Verifica campos obrigatórios do modal
+     * 
+     * Identifica campos marcados como obrigatórios (label termina com ' *')
+     * e verifica se foram preenchidos.
+     * 
+     * @returns {Array<string>} Array com nomes dos campos não preenchidos
+     * @private
+     */
+    _validarCamposObrigatorios() {
+        const erros = [];
+        
+        // Identifica campos obrigatórios pelos labels que terminam com ' *'
+        for (let i = 0; i < this.label.length; i++) {
+            const label = this.label[i];
+            const nomeCampo = this.nomeCampo[i];
+            
+            // Verifica se label termina com ' *' (campo obrigatório)
+            if (label.endsWith(' *')) {
+                const elemento = document.getElementById(nomeCampo);
+                
+                if (elemento) {
+                    const valor = elemento.value?.trim();
+                    
+                    // Campo vazio ou com valor padrão "Selecione..."
+                    if (!valor || valor === '' || valor === 'Selecione...') {
+                        // Remove o ' *' do label para exibir na mensagem
+                        const labelLimpo = label.replace(' *', '');
+                        erros.push(labelLimpo);
+                    }
+                }
+            }
+        }
+        
+        return erros;
+    }
+
+    /**
+     * 🎨 EXIBIÇÃO: Mostra erros de validação visualmente
+     * 
+     * Destaca campos com erro (borda vermelha) e exibe mensagem ao usuário.
+     * 
+     * @param {Array<string>} erros - Array com nomes dos campos com erro
+     * @private
+     */
+    _exibirErros(erros) {
+        console.warn('⚠️ Campos obrigatórios não preenchidos:', erros);
+        
+        // Remove destaques anteriores
+        this.nomeCampo.forEach(nome => {
+            const elemento = document.getElementById(nome);
+            if (elemento) {
+                elemento.style.borderColor = '';
+                elemento.style.borderWidth = '';
+                elemento.style.backgroundColor = '';
+            }
+        });
+        
+        // Destaca campos com erro
+        erros.forEach(labelErro => {
+            // Encontra o índice do campo pelo label
+            const indice = this.label.findIndex(l => l.replace(' *', '') === labelErro);
+            
+            if (indice !== -1) {
+                const nomeCampo = this.nomeCampo[indice];
+                const elemento = document.getElementById(nomeCampo);
+                
+                if (elemento) {
+                    elemento.style.borderColor = '#dc3545'; // Vermelho Bootstrap
+                    elemento.style.borderWidth = '2px';
+                    elemento.style.borderStyle = 'solid';
+                    elemento.style.backgroundColor = '#fff5f5'; // Fundo vermelho claro
+                }
+            }
+        });
+        
+        // Mensagem amigável
+        const mensagem = `⚠️ Campos obrigatórios não preenchidos:\n\n${erros.join('\n')}`;
+        alert(mensagem);
+        
+        // Remove destaques após 3 segundos
+        setTimeout(() => {
+            this.nomeCampo.forEach(nome => {
+                const elemento = document.getElementById(nome);
+                if (elemento) {
+                    elemento.style.backgroundColor = '';
+                }
+            });
+        }, 3000);
+    }
+
+    /**
+     * 🔄 ATUALIZAÇÃO: Monitora mudanças nos campos para habilitar/desabilitar botão Submit
+     * 
+     * Deve ser chamado após renderização para ativar monitoramento em tempo real.
+     * 
+     * @private
+     */
+    _monitorarCamposObrigatorios() {
+        // Aguarda renderização completa
+        setTimeout(() => {
+            const btnSubmit = document.getElementById('btnModalSubmit');
+            if (!btnSubmit) return;
+            
+            // Atualiza estado inicial
+            this._atualizarEstadoBotaoSubmit();
+            
+            // Observa mudanças em todos os campos
+            this.nomeCampo.forEach(nome => {
+                const elemento = document.getElementById(nome);
+                if (elemento) {
+                    elemento.addEventListener('change', () => this._atualizarEstadoBotaoSubmit());
+                    elemento.addEventListener('input', () => this._atualizarEstadoBotaoSubmit());
+                }
+            });
+            
+            console.log('✅ Monitoramento de campos obrigatórios ativado');
+        }, 100);
+    }
+
+    /**
+     * 🎯 ESTADO DO BOTÃO: Habilita/desabilita botão Submit baseado em campos obrigatórios
+     * @private
+     */
+    _atualizarEstadoBotaoSubmit() {
+        const btnSubmit = document.getElementById('btnModalSubmit');
+        if (!btnSubmit) return;
+        
+        const erros = this._validarCamposObrigatorios();
+        
+        if (erros.length === 0) {
+            btnSubmit.disabled = false;
+            btnSubmit.style.opacity = '1';
+            btnSubmit.style.cursor = 'pointer';
+            btnSubmit.title = 'Confirmar seleção';
+        } else {
+            btnSubmit.disabled = true;
+            btnSubmit.style.opacity = '0.5';
+            btnSubmit.style.cursor = 'not-allowed';
+            btnSubmit.title = `Preencha os campos obrigatórios: ${erros.join(', ')}`;
         }
     }
 
