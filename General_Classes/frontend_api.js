@@ -389,19 +389,22 @@ export default class api_fe {
             }
             
             // 🔍 FILTRO DE CAMPOS - Remove campos calculados de VIEWs
-            // Apenas campos listados em this.campos são permitidos para UPDATE
+            // Usa campos_para_update (se disponível) ou campos para filtrar
             // Isso evita erros quando VIEW possui campos calculados (ex: ano, mes, lcto)
             let dadosFiltrados = dados_para_update;
             
-            if (this.campos && this.campos.length > 0 && !this.campos.includes('Todos')) {
+            // Determina qual lista de campos usar para filtro
+            const camposParaFiltro = this.campos_para_update || this.campos;
+            
+            if (camposParaFiltro && camposParaFiltro.length > 0 && !camposParaFiltro.includes('Todos')) {
                 dadosFiltrados = Object.fromEntries(
                     Object.entries(dados_para_update)
-                        .filter(([key]) => this.campos.includes(key))
+                        .filter(([key]) => camposParaFiltro.includes(key))
                 );
                 
                 flow_marker('🧹 Campos filtrados para UPDATE', {
                     campos_originais: Object.keys(dados_para_update),
-                    campos_permitidos: this.campos,
+                    campos_permitidos: camposParaFiltro,
                     campos_filtrados: Object.keys(dadosFiltrados)
                 });
             }

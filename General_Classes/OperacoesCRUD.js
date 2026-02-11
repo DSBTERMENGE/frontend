@@ -517,6 +517,9 @@ async function atualizar_registro() {
         // Chama API para atualizar no backend
         const resultadoAPI = await window.api_info.update_data(dados_para_update);
         
+        // DEBUG: Verificar resposta completa do backend
+        flow_marker('🔍 RESPOSTA DO BACKEND', resultadoAPI);
+        
         if (resultadoAPI.sucesso) {
             flow_marker('✅ Registro atualizado com sucesso');
             
@@ -943,13 +946,10 @@ function _validarFormatosCampos() {
             return false;
         }
         
-        // Valida formato brasileiro: xxx.xxx,xx ou xxxxxx,xx ou xxxxxx
-        // Permite: 1234 | 1234,56 | 1.234,56 | 1.234.567,89
-        if (!/^\d{1,}(\.\d{3})*(\,\d{2})?$/.test(valor)) {
-            alert(`⚠️ ERRO DE VALIDAÇÃO:\n\nCampo "${nomeCampo}": formato inválido.\nUse: 1234 ou 1234,56 ou 1.234,56`);
-            console.log('❌ Formato monetário inválido:', valor);
-            return false;
-        }
+        // ✅ VALIDAÇÃO SIMPLIFICADA: Aceita qualquer combinação válida de números, pontos e vírgula
+        // Permite: 1234 | 1234,56 | 1.234 | 1.234,56 | 1.234.567,89
+        // A conversão para número será feita por Val() ao salvar
+        console.log(`✅ Validação de formato monetário OK para campo "${nomeCampo}": ${valor}`);
     }
     
     // ========== VALIDAÇÃO DE CAMPOS DE DATA ==========
@@ -1118,6 +1118,8 @@ function mapeadorDeDados(dic_dados, config) {
 function _capturarDadosAtuaisFormulario() {
     const dados = {};
     
+    console.log('🔍 _capturarDadosAtuaisFormulario VERSÃO 12:52 - FILTRA CAMPOS DA VIEW');
+    
     // 🎯 CORREÇÃO: Captura apenas campos do formulário ativo
     if (!window.api_info?.form_ativo?.form) {
         console.warn('⚠️ form_ativo não disponível em _capturarDadosAtuaisFormulario');
@@ -1127,17 +1129,44 @@ function _capturarDadosAtuaisFormulario() {
     // 1. Captura dados dos campos do formulário (input, textarea, select)
     const campos = window.api_info.form_ativo.form.querySelectorAll('input, textarea, select');
     
+    // 🔍 Lista de campos que são da VIEW mas não da TABELA (não devem ser salvos)
+    // Esses campos geralmente terminam com: _nome, _descricao, _sigla, _codigo (para exibição)
+    const camposViewPattern = /_nome$|_descricao$|_nome_completo$|_sigla$/;
+    
     campos.forEach(campo => {
         if (campo.id) {
-            // Pula apenas selects de filtro (que começam com "select_")
+            // Pula selects de filtro (que começam com "select_")
             if (campo.id.startsWith('select_')) {
+                return;
+            }
+            
+            // ❌ PULA CAMPOS READONLY: Geralmente são campos de exibição da VIEW
+            if (campo.hasAttribute('readonly') || campo.readOnly) {
+                console.log(`🚫 Campo READONLY ignorado: ${campo.id}`);
+                return;
+            }
+            
+            // ❌ PULA CAMPOS QUE SÃO DA VIEW MAS NÃO DA TABELA
+            // Campos de exibição de FKs (ex: banco_emissor_nome, tipo_investimento_descricao)
+            if (camposViewPattern.test(campo.id)) {
+                console.log(`🚫 Campo de VIEW ignorado: ${campo.id}`);
                 return;
             }
             
             if (campo.type === 'checkbox') {
                 dados[campo.id] = campo.checked;
             } else {
-                dados[campo.id] = campo.value;
+                let valor = campo.value;
+                
+                // 💰 CONVERSÃO AUTOMÁTICA: Campos monetários são convertidos para número
+                const formatCampo = campo.getAttribute('data-format');
+                if ((formatCampo === 'moeda' || formatCampo === 'valor') && valor && valor.trim() !== '') {
+                    // Usa função Val() para converter "1.234,56" → 1234.56
+                    // Só converte se o campo tiver valor
+                    valor = Val(valor);
+                }
+                
+                dados[campo.id] = valor;
             }
         }
     });
@@ -1879,7 +1908,9 @@ export {
     // Função para popular primeira select
     popularSelect,
     // Função interna para usar em FuncoesAuxilares (substituída)
-    _popularFormularioAutomaticoPorIndice
+    _popularFormularioAutomaticoPorIndice,
+    // Função para repopular select de pesquisa após operações CRUD
+    _repopularSelectDePesquisa
 };
 
 
