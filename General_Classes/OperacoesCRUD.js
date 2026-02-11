@@ -549,9 +549,9 @@ async function atualizar_registro() {
             _setModoEditarNovo(false);
             botao_ativo = '';
             
-            // Atualiza backup dos dados originais com dados do array atualizado
+            // 🔄 REPOPULAR FORMULÁRIO com dados atualizados
             if (dadosDisponiveis[reg_num]) {
-                dadosOriginaisRegistro = { ...dadosDisponiveis[reg_num] };
+                _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
             }
             
             // 🔄 REPOPULAR SELECT DE PESQUISA após atualização bem-sucedida
@@ -637,6 +637,11 @@ async function incluir_registro_novo() {
             // Sair do modo inclusão
             _setModoEditarNovo(false);
             botao_ativo = '';
+            
+            // 🔄 REPOPULAR FORMULÁRIO com novo registro inserido
+            if (dadosDisponiveis[reg_num]) {
+                _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
+            }
             
             // 🔄 REPOPULAR SELECT DE PESQUISA após inserção bem-sucedida
             _repopularSelectDePesquisa();
@@ -820,10 +825,14 @@ function valida_Encerrar_Edicao() {
     
     // Compara cada campo com os dados originais
     Object.keys(dadosOriginaisRegistro).forEach(campo => {
-        const valorOriginal = dadosOriginaisRegistro[campo] || '';
-        const valorAtual = dadosAtuais[campo] || '';
+        let valorOriginal = dadosOriginaisRegistro[campo] || '';
+        let valorAtual = dadosAtuais[campo] || '';
         
-        if (valorOriginal.toString() !== valorAtual.toString()) {
+        // Normaliza valores para comparação (remove espaços, converte para string)
+        valorOriginal = valorOriginal.toString().trim();
+        valorAtual = valorAtual.toString().trim();
+        
+        if (valorOriginal !== valorAtual) {
             camposAlterados.push(campo);
         }
     });
@@ -871,10 +880,14 @@ function valida_salvar() {
         
         // Compara cada campo com os dados originais
         Object.keys(dadosOriginaisRegistro).forEach(campo => {
-            const valorOriginal = dadosOriginaisRegistro[campo] || '';
-            const valorAtual = dadosAtuais[campo] || '';
+            let valorOriginal = dadosOriginaisRegistro[campo] || '';
+            let valorAtual = dadosAtuais[campo] || '';
             
-            if (valorOriginal.toString() !== valorAtual.toString()) {
+            // Normaliza valores para comparação (remove espaços, converte para string)
+            valorOriginal = valorOriginal.toString().trim();
+            valorAtual = valorAtual.toString().trim();
+            
+            if (valorOriginal !== valorAtual) {
                 camposAlterados.push(campo);
             }
         });
@@ -952,75 +965,11 @@ function _validarFormatosCampos() {
         console.log(`✅ Validação de formato monetário OK para campo "${nomeCampo}": ${valor}`);
     }
     
-    // ========== VALIDAÇÃO DE CAMPOS DE DATA ==========
-    const camposDatas = document.querySelectorAll('[data-format="data"]');
-    
-    for (const campo of camposDatas) {
-        // Pula campos vazios (validação de obrigatório já foi feita)
-        if (!campo.value || campo.value.trim() === '') continue;
-        
-        const nomeCampo = _obterLabelDoCampo(campo.id) || campo.id;
-        const resultadoData = _validarFormatoData(campo.value.trim());
-        
-        if (!resultadoData.valido) {
-            alert(`⚠️ ERRO DE VALIDAÇÃO:\n\nCampo "${nomeCampo}": ${resultadoData.erro}`);
-            console.log('❌ Formato de data inválido');
-            return false;
-        }
-    }
+    // ✅ DATAS: <input type="date"> valida automaticamente - validação não necessária
     
     console.log('✅ Formatos de campos validados com sucesso');
     return true;
 }
-
-/**
- * Valida formato de data
- * @param {string} dataString - Data a validar (dd/mm/yyyy ou yyyy-mm-dd)
- * @returns {Object} {valido: boolean, erro: string}
- */
-function _validarFormatoData(dataString) {
-    // Regex para formatos aceitos
-    const regexBR = /^(\d{2})\/(\d{2})\/(\d{4})$/;  // dd/mm/yyyy
-    const regexISO = /^(\d{4})-(\d{2})-(\d{2})$/;     // yyyy-mm-dd
-    
-    let dia, mes, ano;
-    
-    // Identifica formato e extrai componentes
-    if (regexBR.test(dataString)) {
-        [, dia, mes, ano] = dataString.match(regexBR);
-    } else if (regexISO.test(dataString)) {
-        [, ano, mes, dia] = dataString.match(regexISO);
-    } else {
-        return { valido: false, erro: 'formato inválido (use dd/mm/yyyy ou yyyy-mm-dd)' };
-    }
-    
-    // Converte para números
-    ano = parseInt(ano);
-    mes = parseInt(mes);
-    dia = parseInt(dia);
-    
-    // Valida ano razoável (1900 - 2100)
-    if (ano < 1900 || ano > 2100) {
-        return { valido: false, erro: `ano inválido: ${ano} (aceito: 1900-2100)` };
-    }
-    
-    // Valida mês (1-12)
-    if (mes < 1 || mes > 12) {
-        return { valido: false, erro: `mês inválido: ${mes}` };
-    }
-    
-    // Valida se a data é válida (verifica dias do mês, ano bissexto, etc)
-    const dataObj = new Date(ano, mes - 1, dia);
-    
-    if (dataObj.getFullYear() !== ano || 
-        dataObj.getMonth() !== mes - 1 || 
-        dataObj.getDate() !== dia) {
-        return { valido: false, erro: `data inexistente: ${dia}/${mes}/${ano}` };
-    }
-    
-    return { valido: true, erro: '' };
-}
-
 /**
  * Obtém label descritivo de um campo
  * @param {string} idCampo - ID do campo
@@ -1306,21 +1255,12 @@ function _popularFormularioAutomatico(dados) {
             } else {
                 let valorFormatado = dados[campo] || '';
                 
-                // ✅ TRATA DATAS vindas do PostgreSQL (objeto Date)
-                if (valorFormatado instanceof Date) {
-                    // Converte para dd/mm/yyyy
-                    const dia = String(valorFormatado.getDate()).padStart(2, '0');
-                    const mes = String(valorFormatado.getMonth() + 1).padStart(2, '0');
-                    const ano = valorFormatado.getFullYear();
-                    valorFormatado = `${dia}/${mes}/${ano}`;
-                }
                 // ✅ TRATA VALORES MONETÁRIOS
-                else {
-                    const formatCampo = elemento.getAttribute('data-format');
-                    if ((formatCampo === 'moeda' || formatCampo === 'valor') && valorFormatado) {
-                        valorFormatado = formatarValorMonetario(valorFormatado, formatCampo);
-                    }
+                const formatCampo = elemento.getAttribute('data-format');
+                if ((formatCampo === 'moeda' || formatCampo === 'valor') && valorFormatado) {
+                    valorFormatado = formatarValorMonetario(valorFormatado, formatCampo);
                 }
+                // ✅ DATAS: <input type="date"> aceita ISO diretamente do backend
                 
                 elemento.value = valorFormatado;
             }
@@ -1331,8 +1271,20 @@ function _popularFormularioAutomatico(dados) {
     });
     _setModoEditarNovo(false); // Proteger campos contra alteração involuntária
     
-    // Atualiza backup dos dados originais para navegação
-    dadosOriginaisRegistro = { ...dados };
+    // Atualiza backup dos dados originais com valores já formatados (dd/mm/yyyy, moeda, etc)
+    // Captura valores dos campos após formatação para garantir comparação consistente
+    const dadosFormatados = {};
+    Object.keys(dados).forEach(campo => {
+        const elemento = window.api_info?.form_ativo?.form.querySelector(`#${campo}`);
+        if (elemento) {
+            // Usa valor já formatado do campo
+            dadosFormatados[campo] = elemento.value;
+        } else {
+            // Se campo não existe no formulário, mantém valor original
+            dadosFormatados[campo] = dados[campo];
+        }
+    });
+    dadosOriginaisRegistro = { ...dadosFormatados };
 }
 
 /**
@@ -1909,7 +1861,11 @@ export {
     popularSelect,
     // Função interna para usar em FuncoesAuxilares (substituída)
     _popularFormularioAutomaticoPorIndice,
+<<<<<<< HEAD
     // Função para repopular select de pesquisa após operações CRUD
+=======
+    // Função para sincronizar select de pesquisa com registro atual
+>>>>>>> e7a0f77250ffc526b3e0d46a7e61d64cce479e39
     _repopularSelectDePesquisa
 };
 

@@ -302,7 +302,14 @@ export default class api_fe {
                 body: JSON.stringify(payload)
             });
             
-            return await response.json();
+            const resultado = await response.json();
+            
+            // Armazena id_usuario se recebido (compatibilidade com apps que precisam)
+            if (resultado.success && resultado.id_usuario) {
+                this.id_usuario = resultado.id_usuario;
+            }
+            
+            return resultado;
             
         } catch (error) {
             console.error('Erro no login:', error);
@@ -464,6 +471,15 @@ export default class api_fe {
             
             if (!dados_novo_registro || Object.keys(dados_novo_registro).length === 0) {
                 throw new Error("Dados para inserção não fornecidos");
+            }
+            
+            // ⚡ AUTO-INJEÇÃO DE ID_USUARIO - Adiciona automaticamente se:
+            // 1) id_usuario está definido no login
+            // 2) campo id_usuario não foi preenchido manualmente
+            // 3) campo id_usuario existe na lista de campos da tabela
+            if (this.id_usuario && !dados_novo_registro.id_usuario && this.campos && this.campos.includes('id_usuario')) {
+                dados_novo_registro.id_usuario = this.id_usuario;
+                flow_marker('✅ id_usuario auto-injetado:', this.id_usuario);
             }
             
             // 🔍 FILTRO DE CAMPOS - Remove campos calculados de VIEWs
