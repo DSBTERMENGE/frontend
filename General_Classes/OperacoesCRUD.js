@@ -502,8 +502,17 @@ async function atualizar_registro() {
         flow_marker('🔍 ANTES MESCLAGEM - dadosOriginaisRegistro', dadosOriginaisRegistro);
         flow_marker('🔍 ANTES MESCLAGEM - alteracoesDom', alteracoesDom);
         
+        // 🔥 CRÍTICO: Filtrar campos de VIEW dos dados originais antes de mesclar
+        const camposViewPattern = /_nome$|_descricao$|_nome_completo$|_sigla$/;
+        const dadosOriginaisFiltrados = {};
+        for (const campo in dadosOriginaisRegistro) {
+            if (!camposViewPattern.test(campo)) {
+                dadosOriginaisFiltrados[campo] = dadosOriginaisRegistro[campo];
+            }
+        }
+        
         // Mescla com dados persistentes para preservar chave primária
-        const dados_para_update = { ...dadosOriginaisRegistro, ...alteracoesDom };
+        const dados_para_update = { ...dadosOriginaisFiltrados, ...alteracoesDom };
         
         // DEBUG: Verificar resultado da mesclagem
         flow_marker('🔍 APÓS MESCLAGEM - dados_para_update', dados_para_update);
@@ -1115,6 +1124,12 @@ function _capturarDadosAtuaisFormulario() {
                     valor = Val(valor);
                 }
                 
+                // 🏢 LIMPEZA CNPJ: Remove formatação antes de salvar
+                if (formatCampo === 'cnpj' && valor && valor.trim() !== '') {
+                    // Remove pontos, barras e traços: "02.332.886/0001-04" → "02332886000104"
+                    valor = valor.replace(/[.\/-]/g, '');
+                }
+                
                 dados[campo.id] = valor;
             }
         }
@@ -1259,6 +1274,15 @@ function _popularFormularioAutomatico(dados) {
                 const formatCampo = elemento.getAttribute('data-format');
                 if ((formatCampo === 'moeda' || formatCampo === 'valor') && valorFormatado) {
                     valorFormatado = formatarValorMonetario(valorFormatado, formatCampo);
+                }
+                
+                // ✅ FORMATA CNPJ: 02332886000104 → 02.332.886/0001-04
+                if (formatCampo === 'cnpj' && valorFormatado) {
+                    let cnpj = valorFormatado.replace(/\D/g, ''); // Remove não-números
+                    if (cnpj.length === 14) {
+                        cnpj = cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+                        valorFormatado = cnpj;
+                    }
                 }
                 // ✅ DATAS: <input type="date"> aceita ISO diretamente do backend
                 
@@ -1861,11 +1885,7 @@ export {
     popularSelect,
     // Função interna para usar em FuncoesAuxilares (substituída)
     _popularFormularioAutomaticoPorIndice,
-<<<<<<< HEAD
-    // Função para repopular select de pesquisa após operações CRUD
-=======
     // Função para sincronizar select de pesquisa com registro atual
->>>>>>> e7a0f77250ffc526b3e0d46a7e61d64cce479e39
     _repopularSelectDePesquisa
 };
 

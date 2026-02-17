@@ -326,7 +326,7 @@ export class FormComum extends FormularioBase {
         }
 
         // Verifica formatos válidos
-        const formatosValidos = ['texto', 'moeda', 'pct', 'data', null];
+        const formatosValidos = ['texto', 'moeda', 'pct', 'data', 'cnpj', 'int', null];
         for (let f of format) {
             if (f !== null && !formatosValidos.includes(f)) {
                 throw new Error(`Formato '${f}' não é permitido. Use apenas: ${formatosValidos.join(', ')}`);
@@ -1143,6 +1143,9 @@ export class FormComum extends FormularioBase {
                     this._validarCampoData(elemento);
                 }
                 break;
+            case 'cnpj':
+                this._validarCampoCNPJ(elemento);
+                break;
             // FUTURO: Adicionar novos formatos aqui
             // case 'cpf':
             //     this._validarCampoCPF(elemento);
@@ -1150,6 +1153,36 @@ export class FormComum extends FormularioBase {
             default:
                 console.warn(`⚠️ Formato desconhecido: ${formato} - Validação não aplicada`);
         }
+    }
+
+    /**
+     * 🏢 VALIDAÇÃO CNPJ: Formato XX.XXX.XXX/XXXX-XX
+     * 
+     * COMPORTAMENTO:
+     * • oninput → Aplica máscara automática enquanto digita
+     * • Aceita apenas números
+     * • Formata: 02332886000104 → 02.332.886/0001-04
+     * • maxLength: 18 caracteres (com formatação)
+     * 
+     * @param {HTMLInputElement} input - Campo a ser validado
+     * @private
+     */
+    _validarCampoCNPJ(input) {
+        input.maxLength = 18;
+        
+        input.addEventListener('input', (e) => {
+            let valor = e.target.value.replace(/\D/g, ''); // Remove não-números
+            
+            // Aplica máscara progressiva
+            if (valor.length <= 14) {
+                valor = valor.replace(/(\d{2})(\d)/, '$1.$2');
+                valor = valor.replace(/(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+                valor = valor.replace(/\.(\d{3})(\d)/, '.$1/$2');
+                valor = valor.replace(/(\d{4})(\d)/, '$1-$2');
+            }
+            
+            e.target.value = valor;
+        });
     }
 
     /**
