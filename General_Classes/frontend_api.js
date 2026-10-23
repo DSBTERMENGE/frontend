@@ -824,7 +824,7 @@ export default class api_fe {
             flow_marker('🗑️ deletar_registro() iniciado', { pk_para_excluir, forcar });
             
             // Validação básica
-            if (!this.const_tabela_alvo) {
+            if (!this.tabela_alvo) {
                 throw new Error("Propriedade tabela_alvo não configurada");
             }
             
@@ -835,7 +835,7 @@ export default class api_fe {
             // Monta payload
             const url = `${this.const_backend_url}/delete_reg`;
             const payload = {
-                tabela_alvo: this.const_tabela_alvo,
+                tabela_alvo: this.tabela_alvo,
                 pk_para_excluir: pk_para_excluir,
                 database_path: this.const_database_path,
                 database_name: this.const_database_name,
@@ -854,11 +854,22 @@ export default class api_fe {
                 timeout: this.const_timeout
             });
             
-            if (!response.ok) {
+            // Lê o JSON mesmo em respostas 4xx/5xx para preservar a mensagem
+            // e os detalhes retornados pelo backend.
+            let resultado;
+            try {
+                resultado = await response.json();
+            } catch (jsonError) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
-            const resultado = await response.json();
+
+            if (!response.ok && resultado.erro !== 'dependencias_encontradas') {
+                throw new Error(
+                    resultado.mensagem ||
+                    resultado.erro ||
+                    `HTTP ${response.status}: ${response.statusText}`
+                );
+            }
             
             // Log baseado no resultado
             if (resultado.erro === 'dependencias_encontradas') {
@@ -876,6 +887,199 @@ export default class api_fe {
             return {
                 sucesso: false,
                 erro: error.message
+            };
+        }
+    }
+
+    // ===============================================================
+    // AGENDA FINCTL - VIRADA DE COMPETENCIA
+    // ===============================================================
+
+    /**
+     * Executa uma chamada da agenda preservando o erro funcional retornado
+     * pelo backend, inclusive quando a resposta HTTP for 4xx ou 5xx.
+     *
+     * @param {string} endpoint - Endpoint da agenda
+     * @param {Object} payload - Corpo JSON da requisicao
+     * @returns {Promise<Object>} Resposta estruturada do backend
+     */
+    async _requisicao_agenda(endpoint, payload) {
+        const response = await fetch(`${this.const_backend_url}${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...this.const_headers
+            },
+            body: JSON.stringify(payload)
+        });
+
+        let resultado;
+        try {
+            resultado = await response.json();
+        } catch (jsonError) {
+            throw new Error(`HTTP ${response.status}: resposta invalida do servidor`);
+        }
+
+        if (!response.ok) {
+            return {
+                sucesso: false,
+                ...resultado,
+                http_status: response.status
+            };
+        }
+        return resultado;
+    }
+
+    /**
+     * Obtem a conferencia da competencia aberta sem modificar o banco.
+     *
+     * @param {string} competencia_origem - Competencia no formato AAAA-MM
+     * @returns {Promise<Object>} Resumo, itens atuais e geracao prevista
+     */
+    async obter_previa_virada(competencia_origem) {
+        try {
+            if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(competencia_origem || '')) {
+                throw new Error("Competencia de origem invalida. Use o formato AAAA-MM.");
+            }
+
+            flow_marker('Obtendo previa da virada', { competencia_origem });
+            return await this._requisicao_agenda('/agenda/previa_virada', {
+                competencia_origem,
+                database_name: this.const_database_name || 'financas'
+            });
+        } catch (error) {
+            error_catcher('Erro ao obter previa da virada', error);
+            return {
+                sucesso: false,
+                erro: 'falha_previa_virada',
+                mensagem: error.message
+            };
+        }
+    }
+
+    /** Confere se o cadastro pode ser inativado na competencia aberta. */
+    async validar_inativacao_agenda(id_agendamento) {
+        try {
+            if (!Number.isInteger(Number(id_agendamento))) {
+                throw new Error('Identificador do cadastro invalido.');
+            }
+            return await this._requisicao_agenda('/agenda/validar_inativacao', {
+                id_agendamento: Number(id_agendamento),
+                database_name: this.const_database_name || 'financas'
+            });
+        } catch (error) {
+            error_catcher('Erro ao validar inativacao da agenda', error);
+            return {
+                sucesso: false,
+                permitido: false,
+                erro: 'falha_validacao_inativacao',
+                mensagem: error.message
+            };
+        }
+    }
+
+    /** Consulta as diferenças entre os cadastros e a competência aberta. */
+    async obter_previa_sincronizacao() {
+        try {
+            return await this._requisicao_agenda(
+                '/agenda/previa_sincronizacao',
+                { database_name: this.const_database_name || 'financas' }
+            );
+        } catch (error) {
+            error_catcher('Erro ao obter previa da sincronizacao', error);
+            return {
+                sucesso: false,
+                erro: 'falha_previa_sincronizacao',
+                mensagem: error.message
+            };
+        }
+    }
+
+    /** Aplica uma prévia de sincronização confirmada pelo usuário. */
+    async confirmar_sincronizacao_agenda(
+        competencia,
+        assinatura_previa,
+        confirmacao = false
+    ) {
+        try {
+            if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(competencia || '')) {
+                throw new Error('Competencia invalida. Use o formato AAAA-MM.');
+            }
+            if (!assinatura_previa) {
+                throw new Error('Gere uma nova previa antes de confirmar.');
+            }
+            if (confirmacao !== true) {
+                return {
+                    sucesso: false,
+                    erro: 'confirmacao_obrigatoria',
+                    mensagem: 'A sincronizacao exige confirmacao explicita.'
+                };
+            }
+            return await this._requisicao_agenda(
+                '/agenda/confirmar_sincronizacao',
+                {
+                    competencia,
+                    assinatura_previa,
+                    confirmacao: true,
+                    database_name: this.const_database_name || 'financas'
+                }
+            );
+        } catch (error) {
+            error_catcher('Erro ao confirmar sincronizacao da agenda', error);
+            return {
+                sucesso: false,
+                erro: 'falha_confirmacao_sincronizacao',
+                mensagem: error.message
+            };
+        }
+    }
+
+    /**
+     * Confirma a virada exibida anteriormente pela previa.
+     *
+     * @param {string} competencia_origem - Competencia aberta atual
+     * @param {string} competencia_destino - Destino apresentado na previa
+     * @param {boolean} confirmacao - Deve ser exatamente true
+     * @returns {Promise<Object>} Resultado do encerramento e da geracao
+     */
+    async confirmar_virada_competencia(
+        competencia_origem,
+        competencia_destino,
+        confirmacao = false
+    ) {
+        try {
+            const formatoCompetencia = /^\d{4}-(0[1-9]|1[0-2])$/;
+            if (!formatoCompetencia.test(competencia_origem || '') ||
+                !formatoCompetencia.test(competencia_destino || '')) {
+                throw new Error("Competencias invalidas. Use o formato AAAA-MM.");
+            }
+            if (confirmacao !== true) {
+                return {
+                    sucesso: false,
+                    erro: 'confirmacao_obrigatoria',
+                    mensagem: 'A virada exige confirmacao explicita do usuario.'
+                };
+            }
+
+            flow_marker('Confirmando virada de competencia', {
+                competencia_origem,
+                competencia_destino
+            });
+            return await this._requisicao_agenda(
+                '/agenda/gerar_proxima_competencia',
+                {
+                    competencia_origem,
+                    competencia_destino,
+                    confirmacao: true,
+                    database_name: this.const_database_name || 'financas'
+                }
+            );
+        } catch (error) {
+            error_catcher('Erro ao confirmar virada de competencia', error);
+            return {
+                sucesso: false,
+                erro: 'falha_virada_competencia',
+                mensagem: error.message
             };
         }
     }

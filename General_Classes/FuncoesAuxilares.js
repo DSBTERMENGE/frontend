@@ -735,9 +735,22 @@ function encerrarAplicativo(nomeApp = "aplicativo") {
  * @since 2.0.0
  */
 export function formatarValorMonetario(valor, tipo = 'valor') {
-    // ✅ PADRÃO POSTGRESQL: Backend sempre envia float
-    // Não precisa Val() - apenas formata o número que vem do backend
-    const numero = Number(valor) || 0; // Garante que é número
+    let numero;
+
+    if (typeof valor === 'number') {
+        numero = valor;
+    } else {
+        let texto = String(valor ?? '').replace(/[R$%\s]/g, '');
+
+        // Formato brasileiro: 1.234,56 ou 123,45.
+        if (texto.includes(',')) {
+            texto = texto.replace(/\./g, '').replace(',', '.');
+        }
+
+        numero = Number(texto);
+    }
+
+    if (!Number.isFinite(numero)) numero = 0;
     const formatado = numero.toLocaleString('pt-BR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2

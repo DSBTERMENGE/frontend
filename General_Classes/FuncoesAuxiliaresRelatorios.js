@@ -18,20 +18,46 @@ export function Val(valor) {
     if (typeof valor === 'number') {
         return isNaN(valor) ? 0 : valor;
     }
-    
-    // Se é string, limpa formatação brasileira
+
+    // Se é string, limpa formatação
     if (typeof valor === 'string') {
-        // Remove espaços, R$, %, etc
+        // Remove espaços, R$, %, etc (mantém números, ponto e vírgula)
         let limpo = valor.replace(/[R$%\s]/g, '');
-        // Remove pontos de milhares
-        limpo = limpo.replace(/\./g, '');
-        // Troca vírgula decimal por ponto
-        limpo = limpo.replace(',', '.');
+
+        // 🎯 DETECÇÃO INTELIGENTE DE FORMATO:
+        const temVirgula = limpo.includes(',');
+        const temPonto = limpo.includes('.');
+
+        if (temVirgula && temPonto) {
+            // Formato BR: "1.275,36" ou "95.138,00"
+            // Ponto = separador de milhar (remover)
+            // Vírgula = decimal (trocar por ponto)
+            limpo = limpo.replace(/\./g, '').replace(',', '.');
+        } else if (temVirgula) {
+            // Apenas vírgula: "653,25" (BR)
+            // Vírgula = decimal (trocar por ponto)
+            limpo = limpo.replace(',', '.');
+        } else if (temPonto) {
+            // Apenas ponto: "12387.79" (US) ou "1.275" (BR milhar?)
+            // Ambiguidade: assumir US se menos de 4 dígitos antes do ponto
+            const partes = limpo.split('.');
+            if (partes.length === 2 && partes[1].length === 2) {
+                // Provavelmente decimal: "12387.79" → 12387.79
+                // Mantém como está
+            } else if (partes.length === 2 && partes[1].length === 3) {
+                // Provavelmente milhar: "1.275" → 1275
+                limpo = limpo.replace(/\./g, '');
+            }
+            // Casos como "95.138" são ambíguos - assumir milhar (remover)
+            // Se o usuário quer decimal, deve usar vírgula em formato BR
+        }
+        // Caso contrário: apenas números, sem formatação
+
         // Converte para número
         const numero = parseFloat(limpo);
         return isNaN(numero) ? 0 : numero;
     }
-    
+
     // Null, undefined, ou qualquer outra coisa = 0
     return 0;
 }
@@ -49,7 +75,7 @@ export function executarOperacao(dados, nomeColuna, tipoOperacao) {
     if (!dados || dados.length === 0) {
         return 0;
     }
-    
+
     // 2️⃣ SELEÇÃO: Executar operação específica
     switch (tipoOperacao) {
         case 'Tot':
@@ -57,35 +83,35 @@ export function executarOperacao(dados, nomeColuna, tipoOperacao) {
 
 
             return calcularSoma(dados, nomeColuna);
-        
+
         case 'Med':
         case 'Avg':
             return calcularMedia(dados, nomeColuna);
-        
+
         case 'Max':
             return calcularMaximo(dados, nomeColuna);
-        
+
         case 'Min':
             return calcularMinimo(dados, nomeColuna);
-        
+
         case 'Cnt':
             return calcularContagem(dados, nomeColuna);
-        
+
         case 'StdDev':
             return calcularDesvioPadrao(dados, nomeColuna);
-        
+
         case 'Var':
             return calcularVariancia(dados, nomeColuna);
-        
+
         case 'Range':
             return calcularAmplitude(dados, nomeColuna);
-        
+
         case 'First':
             return obterPrimeiro(dados, nomeColuna);
-        
+
         case 'Last':
             return obterUltimo(dados, nomeColuna);
-        
+
         default:
             console.warn(`⚠️ Operação '${tipoOperacao}' não reconhecida. Usando soma por padrão.`);
             return calcularSoma(dados, nomeColuna);
@@ -100,11 +126,11 @@ export function executarOperacao(dados, nomeColuna, tipoOperacao) {
  */
 export function calcularSoma(dados, nomeColuna) {
     let soma = 0;
-    
+
     for (let i = 0; i < dados.length; i++) {
         soma += Val(dados[i][nomeColuna]);
     }
-    
+
     return soma;
 }
 
@@ -140,14 +166,14 @@ export function calcularMedia(dados, nomeColuna) {
  */
 export function calcularMaximo(dados, nomeColuna) {
     let maximo = -Infinity;
-    
+
     for (let i = 0; i < dados.length; i++) {
         const valor = Val(dados[i][nomeColuna]);
         if (valor > maximo) {
             maximo = valor;
         }
     }
-    
+
     return maximo === -Infinity ? 0 : maximo;
 }
 
@@ -159,14 +185,14 @@ export function calcularMaximo(dados, nomeColuna) {
  */
 export function calcularMinimo(dados, nomeColuna) {
     let minimo = Infinity;
-    
+
     for (let i = 0; i < dados.length; i++) {
         const valor = Val(dados[i][nomeColuna]);
         if (valor < minimo) {
             minimo = valor;
         }
     }
-    
+
     return minimo === Infinity ? 0 : minimo;
 }
 
@@ -178,20 +204,20 @@ export function calcularMinimo(dados, nomeColuna) {
  */
 export function calcularContagem(dados, nomeColuna) {
     let contador = 0;
-    
+
     for (let i = 0; i < dados.length; i++) {
         let valor = dados[i][nomeColuna];
-        
+
         if (typeof valor === 'string') {
             valor = valor.replace(/[R$%\s]/g, '').replace(',', '.');
         }
-        
+
         const numeroConvertido = parseFloat(valor);
         if (!isNaN(numeroConvertido)) {
             contador++;
         }
     }
-    
+
     return contador;
 }
 
@@ -215,24 +241,24 @@ export function calcularDesvioPadrao(dados, nomeColuna) {
 export function calcularVariancia(dados, nomeColuna) {
     const media = calcularMedia(dados, nomeColuna);
     const quantidade = calcularContagem(dados, nomeColuna);
-    
+
     if (quantidade === 0) return 0;
-    
+
     let somaQuadrados = 0;
-    
+
     for (let i = 0; i < dados.length; i++) {
         let valor = dados[i][nomeColuna];
-        
+
         if (typeof valor === 'string') {
             valor = valor.replace(/[R$%\s]/g, '').replace(',', '.');
         }
-        
+
         const numeroConvertido = parseFloat(valor);
         if (!isNaN(numeroConvertido)) {
             somaQuadrados += Math.pow(numeroConvertido - media, 2);
         }
     }
-    
+
     return somaQuadrados / quantidade;
 }
 
@@ -257,11 +283,11 @@ export function calcularAmplitude(dados, nomeColuna) {
 export function obterPrimeiro(dados, nomeColuna) {
     for (let i = 0; i < dados.length; i++) {
         let valor = dados[i][nomeColuna];
-        
+
         if (typeof valor === 'string') {
             valor = valor.replace(/[R$%\s]/g, '').replace(',', '.');
         }
-        
+
         const numeroConvertido = parseFloat(valor);
         if (!isNaN(numeroConvertido)) {
             return numeroConvertido;
@@ -279,11 +305,11 @@ export function obterPrimeiro(dados, nomeColuna) {
 export function obterUltimo(dados, nomeColuna) {
     for (let i = dados.length - 1; i >= 0; i--) {
         let valor = dados[i][nomeColuna];
-        
+
         if (typeof valor === 'string') {
             valor = valor.replace(/[R$%\s]/g, '').replace(',', '.');
         }
-        
+
         const numeroConvertido = parseFloat(valor);
         if (!isNaN(numeroConvertido)) {
             return numeroConvertido;
@@ -299,34 +325,34 @@ export function obterUltimo(dados, nomeColuna) {
  */
 export function determinarOperacaoColuna(nomeColuna) {
     const nomeMinusculo = nomeColuna.toLowerCase();
-    
+
     // Mapeamento inteligente baseado no nome da coluna
-    if (nomeMinusculo.includes('valor') || 
-        nomeMinusculo.includes('preco') || 
+    if (nomeMinusculo.includes('valor') ||
+        nomeMinusculo.includes('preco') ||
         nomeMinusculo.includes('total') ||
         nomeMinusculo.includes('custo') ||
         nomeMinusculo.includes('receita') ||
         nomeMinusculo.includes('despesa')) {
         return 'Tot'; // Soma para valores monetários
     }
-    
-    if (nomeMinusculo.includes('quantidade') || 
+
+    if (nomeMinusculo.includes('quantidade') ||
         nomeMinusculo.includes('qtd') ||
         nomeMinusculo.includes('numero') ||
         nomeMinusculo.includes('num')) {
         return 'Tot'; // Soma para quantidades
     }
-    
-    if (nomeMinusculo.includes('media') || 
+
+    if (nomeMinusculo.includes('media') ||
         nomeMinusculo.includes('avg')) {
         return 'Med'; // Média quando explicitamente solicitada
     }
-    
-    if (nomeMinusculo.includes('data') || 
+
+    if (nomeMinusculo.includes('data') ||
         nomeMinusculo.includes('date')) {
         return 'Cnt'; // Contagem para datas
     }
-    
+
     // Padrão: soma para campos numéricos, contagem para outros
     return 'Tot';
 }
@@ -339,7 +365,7 @@ export function determinarOperacaoColuna(nomeColuna) {
 export function obterLabelOperacao(operacao) {
     const labels = {
         'Tot': 'Total',
-        'Med': 'Média', 
+        'Med': 'Média',
         'Min': 'Mínimo',
         'Cnt': 'Contagem',
         'Sum': 'Soma',
@@ -350,7 +376,7 @@ export function obterLabelOperacao(operacao) {
         'First': 'Primeiro',
         'Last': 'Último'
     };
-    
+
     return labels[operacao] || operacao;
 }
 
@@ -362,10 +388,10 @@ export function obterLabelOperacao(operacao) {
  */
 export function formatarResultado(resultado, nomeColuna) {
     const nomeMinusculo = nomeColuna.toLowerCase();
-    
+
     // Se é valor monetário, formata como número (SEM R$)
-    if (nomeMinusculo.includes('valor') || 
-        nomeMinusculo.includes('preco') || 
+    if (nomeMinusculo.includes('valor') ||
+        nomeMinusculo.includes('preco') ||
         nomeMinusculo.includes('custo') ||
         nomeMinusculo.includes('receita') ||
         nomeMinusculo.includes('despesa')) {
@@ -374,12 +400,12 @@ export function formatarResultado(resultado, nomeColuna) {
             maximumFractionDigits: 2
         });
     }
-    
+
     // Se é contagem, não usa decimais
     if (Number.isInteger(resultado)) {
         return resultado.toLocaleString('pt-BR');
     }
-    
+
     // Padrão: 2 casas decimais
     return resultado.toLocaleString('pt-BR', {
         minimumFractionDigits: 2,
@@ -389,7 +415,7 @@ export function formatarResultado(resultado, nomeColuna) {
 
 /**
  * Cria título e descrição em container específico
- * @param {string} titulo - Título principal 
+ * @param {string} titulo - Título principal
  * @param {string} descricao - Descrição/subtítulo (opcional)
  * @param {string} containerId - ID do container ("Relatorio" para divTituloRelatorio ou ID específico)
  */
@@ -398,15 +424,15 @@ export function CriaTituloDeRelatorios(titulo, descricao, containerId) {
         // Busca os elementos h1 e h2 fixos criados no HTML (estrutura base do index.html)
         const h1 = document.getElementById('h1TituloRelatorio');
         const h2 = document.getElementById('h2DescricaoRelatorio');
-        
+
         if (!h1 || !h2) {
             throw new Error('Elementos h1TituloRelatorio ou h2DescricaoRelatorio não encontrados no DOM');
         }
-        
+
         // Popula os elementos com os valores recebidos
         h1.textContent = titulo;
         h2.textContent = descricao || '';
-        
+
         // Garantir que o container principal de relatórios esteja visível
         try {
             const divRelatorio = document.getElementById('divRelatorio');
@@ -419,7 +445,7 @@ export function CriaTituloDeRelatorios(titulo, descricao, containerId) {
             // não interromper a criação do título por causa deste ajuste
             console.warn('CriaTituloDeRelatorios: não foi possível garantir visibilidade de #divRelatorio', e);
         }
-        
+
     } catch (error) {
         error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao criar título: ${error.message}`);
     }
@@ -432,7 +458,7 @@ export function CriaTituloDeRelatorios(titulo, descricao, containerId) {
 export function encerrarRelatorio() {
     try {
         console.log('🗑️ Iniciando encerramento do relatório...');
-        
+
         // 1. LIMPAR ELEMENTOS HTML
         const divRelatorio = document.getElementById('divRelatorio');
         if (divRelatorio) {
@@ -467,7 +493,7 @@ export function encerrarRelatorio() {
             }
             divRelatorio.classList.add('hidden'); // Oculta o relatório
         }
-        
+
         // 2. DESTRUIR GRÁFICOS Chart.js (se existirem)
         if (window.Chart && window.Chart.instances) {
             Object.values(window.Chart.instances).forEach(chart => {
@@ -476,7 +502,7 @@ export function encerrarRelatorio() {
                 }
             });
         }
-        
+
         // 3. LIMPAR CONTADORES DE DIVS
         if (window.subrelatorio_counter) {
             window.subrelatorio_counter = 1;
@@ -487,14 +513,14 @@ export function encerrarRelatorio() {
         if (window.subrelatorio_chart_counter) {
             window.subrelatorio_chart_counter = 1;
         }
-        
+
         // 4. FORÇAR GARBAGE COLLECTION (se disponível)
         if (window.gc && typeof window.gc === 'function') {
             window.gc();
         }
-        
+
         console.log('✅ Relatório encerrado e memória limpa');
-        
+
     } catch (error) {
         error_catcher('FuncoesAuxiliaresRelatorios.js', 0, `Erro ao encerrar relatório: ${error.message}`);
     }
@@ -560,4 +586,4 @@ export async function populaSelectFiltro(selectOrId, sql, options = {}) {
         try { selectEl.removeChild(loadingOption); } catch (e) {}
         return [];
     }
-}
+}\n
