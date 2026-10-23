@@ -893,4 +893,4 @@ export default class ValidarDadosForm {
 
         return parseFloat(valorLimpo) || 0;
     }
-}\n
+}

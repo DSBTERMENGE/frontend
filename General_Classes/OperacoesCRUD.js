@@ -1969,4 +1969,4 @@ export {
     _popularFormularioAutomaticoPorIndice,
     // Função para sincronizar select de pesquisa com registro atual
     _repopularSelectDePesquisa
-};\n
+};

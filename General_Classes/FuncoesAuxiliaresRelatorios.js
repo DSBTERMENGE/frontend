@@ -586,4 +586,4 @@ export async function populaSelectFiltro(selectOrId, sql, options = {}) {
         try { selectEl.removeChild(loadingOption); } catch (e) {}
         return [];
     }
-}\n
+}
