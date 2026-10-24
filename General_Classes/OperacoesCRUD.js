@@ -69,6 +69,79 @@ let listenerConfigurado = false;  // Evita múltiplos listeners
 let contadorExecucoes = 0;   // Debug: contador de execuções
 let dadosOriginaisRegistro = {}; // Backup dos dados originais do registro atual
 
+/**
+ * Mantém contador e seleção direta sincronizados com a navegação do formulário.
+ * Os recursos só existem quando configNavegacao foi definida no formulário.
+ */
+function atualizarNavegacaoAvancada() {
+    const formularioAtivo = window.api_info?.form_ativo;
+    const config = formularioAtivo?.configNavegacao;
+    const formulario = formularioAtivo?.form;
+    if (!config || !formulario) return;
+
+    const controles = formulario.querySelector('#divControlesFormulario');
+    if (config.pesquisa?.campo && controles) {
+        let barraPesquisa = controles.querySelector('[data-navegacao-avancada="true"]');
+        if (!barraPesquisa) {
+            barraPesquisa = document.createElement('div');
+            barraPesquisa.dataset.navegacaoAvancada = 'true';
+            barraPesquisa.style.display = 'flex';
+            barraPesquisa.style.alignItems = 'center';
+            barraPesquisa.style.gap = '0.5rem';
+            barraPesquisa.style.marginLeft = 'auto';
+
+            const rotulo = document.createElement('label');
+            rotulo.textContent = `${config.pesquisa.rotulo || 'Localizar registro'}: `;
+            const pesquisa = document.createElement('select');
+            pesquisa.id = 'select_pesquisa_registros';
+            pesquisa.dataset.pesquisaRegistros = 'true';
+            pesquisa.style.width = config.pesquisa.largura || '20rem';
+            pesquisa.setAttribute('aria-label', config.pesquisa.rotulo || 'Localizar registro');
+            pesquisa.addEventListener('change', () => {
+                const indice = Number(pesquisa.value);
+                if (!Number.isInteger(indice) || !dadosDisponiveis[indice]) return;
+                reg_num = indice;
+                _popularFormularioAutomatico(dadosDisponiveis[reg_num]);
+            });
+            rotulo.appendChild(pesquisa);
+            barraPesquisa.appendChild(rotulo);
+            controles.appendChild(barraPesquisa);
+        }
+
+        const pesquisa = barraPesquisa.querySelector('[data-pesquisa-registros="true"]');
+        if (pesquisa) {
+            const campo = config.pesquisa.campo;
+            pesquisa.replaceChildren();
+            dadosDisponiveis.forEach((registro, indice) => {
+                const opcao = document.createElement('option');
+                opcao.value = String(indice);
+                opcao.textContent = String(registro[campo] ?? `Registro ${indice + 1}`);
+                pesquisa.appendChild(opcao);
+            });
+            pesquisa.value = reg_num >= 0 ? String(reg_num) : '';
+        }
+    }
+
+    const botoes = formulario.querySelector('.botoes-container');
+    let contador = botoes?.querySelector('[data-contador-registros="true"]');
+    if (config.contador && botoes && !contador) {
+        contador = document.createElement('output');
+        contador.dataset.contadorRegistros = 'true';
+        contador.style.minWidth = '8rem';
+        contador.style.marginRight = '0.5rem';
+        contador.style.fontWeight = 'bold';
+        contador.style.textAlign = 'right';
+        contador.setAttribute('aria-live', 'polite');
+        const grupoNavegacao = botoes.querySelector('.grupo-btn02');
+        botoes.insertBefore(contador, grupoNavegacao || botoes.firstChild);
+    }
+    if (contador) {
+        const total = Array.isArray(dadosDisponiveis) ? dadosDisponiveis.length : 0;
+        const atual = total > 0 && reg_num >= 0 ? reg_num + 1 : 0;
+        contador.textContent = `Registro ${atual} de ${total}`;
+    }
+}
+
 
 //************************************************************
 //                      LISTENERS
@@ -459,6 +532,7 @@ async function popularFormulario() {
 
                 // População unificada - sempre há registro [0] para popular
                 dadosDisponiveis = dadosRecebidos || [];
+                reg_num = 0;
 
                 _popularFormularioAutomatico(dadosRecebidos[0]);
 
@@ -1259,6 +1333,7 @@ function _limparFormulario() {
 
     // Garante que campos ficam readonly (modo visualização)
     _setModoEditarNovo(false);
+    atualizarNavegacaoAvancada();
 }
 
  //* ⚠️ BEEP: Indica que chegou ao limite de navegação
@@ -1384,6 +1459,7 @@ function _popularFormularioAutomatico(dados) {
         }
     });
     dadosOriginaisRegistro = { ...dadosFormatados };
+    atualizarNavegacaoAvancada();
 }
 
 /**

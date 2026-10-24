@@ -175,7 +175,7 @@ function habilitarControlesDeFrm(form = null) {
         let habilitadosCount = 0;
         
         controles.forEach(controle => {
-            if (controle.id && controle.id.startsWith('select_')) {
+            if ((controle.id && controle.id.startsWith('select_')) || controle.dataset.pesquisaRegistros === 'true') {
                 // SELECTS DE FILTRO/PESQUISA: Sempre habilitadas
                 controle.removeAttribute('disabled');
                 controle.removeAttribute('readonly');
@@ -238,7 +238,7 @@ function desabilitarControlesDeFrm(form = null) {
         let processadosCount = 0;
         
         controles.forEach(controle => {
-            if (controle.id && controle.id.startsWith('select_')) {
+            if ((controle.id && controle.id.startsWith('select_')) || controle.dataset.pesquisaRegistros === 'true') {
                 // SELECTS DE FILTRO/PESQUISA: Sempre habilitadas (NUNCA desabilita)
                 controle.removeAttribute('disabled');
                 controle.removeAttribute('readonly');
@@ -291,7 +291,7 @@ function habilitarModoEdicao(form = null) {
         let configuradosCount = 0;
         
         controles.forEach(controle => {
-            if (controle.id && controle.id.startsWith('select_')) {
+            if ((controle.id && controle.id.startsWith('select_')) || controle.dataset.pesquisaRegistros === 'true') {
                 // SELECTS DE FILTRO/PESQUISA: Sempre habilitadas, sem fundo amarelo
                 controle.removeAttribute('disabled');
                 controle.removeAttribute('readonly');

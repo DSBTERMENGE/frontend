@@ -254,6 +254,10 @@ export class FormComum extends FormularioBase {
          * }
          */
         this.configSelects = opcoes.selects || null;
+
+        // Recursos opcionais para formulários com muitos registros.
+        // Exemplo: { contador: true, pesquisa: { campo: 'descricao' } }
+        this.configNavegacao = opcoes.configNavegacao || null;
         
         // 🚀 RENDERIZAÇÃO CONDICIONAL 
         // Se todos os parâmetros obrigatórios foram fornecidos → renderiza automaticamente (modo legado)
